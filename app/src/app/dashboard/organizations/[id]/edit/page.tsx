@@ -1,0 +1,189 @@
+"use client"
+
+import { useState, use } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { mockOrganizations } from "@/lib/mock-data"
+import { ArrowLeft, Plus, X } from "lucide-react"
+
+export default function EditOrganizationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const router = useRouter()
+  const organization = mockOrganizations.find((o) => o.id === id)
+
+  const [name, setName] = useState(organization?.name || "")
+  const [description, setDescription] = useState(organization?.description || "")
+  const [ruleInput, setRuleInput] = useState("")
+  const [rules, setRules] = useState<string[]>(organization?.rules || [])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  if (!organization) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Organization not found</h1>
+        <p className="mt-2 text-muted-foreground">The organization you&apos;re looking for doesn&apos;t exist.</p>
+        <Link href="/dashboard" className="mt-4">
+          <Button>Go to Dashboard</Button>
+        </Link>
+      </div>
+    )
+  }
+
+  const handleAddRule = () => {
+    if (ruleInput.trim()) {
+      const newRules = ruleInput
+        .split(/[,\n]/)
+        .map((r) => r.trim())
+        .filter((r) => r && !rules.includes(r))
+      setRules([...rules, ...newRules])
+      setRuleInput("")
+    }
+  }
+
+  const handleRemoveRule = (rule: string) => {
+    setRules(rules.filter((r) => r !== rule))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim() || rules.length === 0) return
+
+    setIsSubmitting(true)
+    // Mock submission
+    setTimeout(() => {
+      router.push(`/dashboard/organizations/${id}`)
+    }, 500)
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleAddRule()
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link href={`/dashboard/organizations/${id}`}>
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Edit Organization</h1>
+          <p className="text-muted-foreground">Update organization details and rules</p>
+        </div>
+      </div>
+
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Organization Details</CardTitle>
+            <CardDescription>Basic information about your organization</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Organization Name *</Label>
+              <Input
+                id="name"
+                placeholder="e.g., CS 301 - Data Structures"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Brief description of this organization..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Grading Rules</CardTitle>
+            <CardDescription>
+              Define the criteria that will be used to evaluate assignments
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Manual Rule Input */}
+            <div className="space-y-2">
+              <Label htmlFor="rules">Add Rules</Label>
+              <div className="flex gap-2">
+                <Textarea
+                  id="rules"
+                  placeholder="Enter rules (separate by comma or new line)"
+                  value={ruleInput}
+                  onChange={(e) => setRuleInput(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  rows={2}
+                  className="flex-1"
+                />
+                <Button type="button" onClick={handleAddRule} variant="outline" className="shrink-0">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Rules List */}
+            {rules.length > 0 && (
+              <div className="space-y-2">
+                <Label>Current Rules ({rules.length})</Label>
+                <div className="flex flex-wrap gap-2">
+                  {rules.map((rule, index) => (
+                    <Badge
+                      key={index}
+                      variant="secondary"
+                      className="flex items-center gap-1 py-1.5 pl-3 pr-1"
+                    >
+                      {rule}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRule(rule)}
+                        className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <Link href={`/dashboard/organizations/${id}`} className="flex-1">
+            <Button type="button" variant="outline" className="w-full">
+              Cancel
+            </Button>
+          </Link>
+          <Button
+            type="submit"
+            className="flex-1"
+            disabled={!name.trim() || rules.length === 0 || isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
