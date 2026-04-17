@@ -134,6 +134,9 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
             {organization.description && (
               <p className="text-muted-foreground">{organization.description}</p>
             )}
+            {organization.gradingSystem && (
+              <p className="text-sm text-muted-foreground">Grading system: {organization.gradingSystem}</p>
+            )}
           </div>
         </div>
         <div className="flex gap-2">

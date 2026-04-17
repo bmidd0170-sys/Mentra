@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { mockUser, mockNotifications } from "@/lib/mock-data"
+import { DEMO_AUTH_EMAIL, DEMO_AUTH_UID, getDemoSession } from "@/lib/demo-auth"
+import { mockNotifications } from "@/lib/mock-data"
+import { useAuth } from "@/components/firebase-auth-provider"
 import {
   Zap,
   Home,
@@ -31,6 +33,7 @@ import {
 
 const navigation = [
   { name: "Home", href: "/dashboard", icon: Home },
+  { name: "Profile", href: "/dashboard/profile", icon: User },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ]
 
@@ -39,15 +42,44 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const { user, loading, signOutUser } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [notifications] = useState(mockNotifications)
+  const isDemoSession = user?.uid === DEMO_AUTH_UID || getDemoSession()
+
+  useEffect(() => {
+    if (!loading && !user && !isDemoSession) {
+      router.replace("/login")
+    }
+  }, [isDemoSession, loading, router, user])
 
   const unreadCount = notifications.filter((n) => !n.read).length
+  const userName = user?.displayName || (isDemoSession ? "Rob Launchpad" : null) || user?.email?.split("@")[0] || "Mentra user"
+  const userEmail = user?.email || (isDemoSession ? DEMO_AUTH_EMAIL : "Connected with Firebase")
+  const initials = userName
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
 
-  const handleLogout = () => {
-    router.push("/")
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        Loading your account...
+      </div>
+    )
+  }
+
+  if (!user && !isDemoSession) {
+    return null
+  }
+
+  const handleLogout = async () => {
+    await signOutUser()
+    router.replace("/login")
   }
 
   const getNotificationIcon = (type: string) => {
@@ -100,11 +132,11 @@ export default function DashboardLayout({
           <div className="border-t border-sidebar-border p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground font-medium">
-                {mockUser.name.split(" ").map((n) => n[0]).join("")}
+                {initials || "M"}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-sidebar-foreground">{mockUser.name}</p>
-                <p className="truncate text-xs text-sidebar-foreground/60">{mockUser.email}</p>
+                <p className="truncate text-sm font-medium text-sidebar-foreground">{userName}</p>
+                <p className="truncate text-xs text-sidebar-foreground/60">{userEmail}</p>
               </div>
             </div>
           </div>
@@ -228,20 +260,20 @@ export default function DashboardLayout({
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
-                  {mockUser.name.split(" ").map((n) => n[0]).join("")}
+                  {initials || "M"}
                 </div>
-                <span className="hidden text-sm font-medium sm:inline-block">{mockUser.name}</span>
+                <span className="hidden text-sm font-medium sm:inline-block">{userName}</span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-3 py-2">
-                <p className="text-sm font-medium">{mockUser.name}</p>
-                <p className="text-xs text-muted-foreground">{mockUser.email}</p>
+                <p className="text-sm font-medium">{userName}</p>
+                <p className="text-xs text-muted-foreground">{userEmail}</p>
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/dashboard/settings" className="flex items-center gap-2">
+                <Link href="/dashboard/profile" className="flex items-center gap-2">
                   <User className="h-4 w-4" />
                   Profile
                 </Link>

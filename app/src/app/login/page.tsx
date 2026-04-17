@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -8,30 +8,134 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { useAuth } from "@/components/firebase-auth-provider"
+import {
+  DEMO_AUTH_EMAIL,
+  DEMO_AUTH_PASSWORD,
+  isDemoCredentialPair,
+  setDemoSession,
+} from "@/lib/demo-auth"
 import { Zap, ArrowLeft } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isSignUpMode, setIsSignUpMode] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [resetNotice, setResetNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/dashboard")
+    }
+  }, [loading, router, user])
+
+  const getErrorMessage = (error: unknown) => {
+    const message = error instanceof Error ? error.message : ""
+
+    if (message.includes("auth/popup-closed-by-user")) {
+      return "Google sign-in was closed before it finished."
+    }
+
+    if (message.includes("auth/popup-blocked")) {
+      return "Your browser blocked the Google sign-in popup."
+    }
+
+    if (message.includes("auth/email-already-in-use")) {
+      return "That email is already in use. Try signing in instead."
+    }
+
+    if (message.includes("auth/invalid-email")) {
+      return "Enter a valid email address."
+    }
+
+    if (message.includes("auth/weak-password")) {
+      return "Use a stronger password."
+    }
+
+    if (message.includes("auth/user-not-found") || message.includes("auth/wrong-password") || message.includes("auth/invalid-credential")) {
+      return "The email or password is not valid."
+    }
+
+    return message || "Something went wrong. Please try again."
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Mock login - navigate to dashboard
-    setTimeout(() => {
-      router.push("/dashboard")
-    }, 500)
+    setAuthError(null)
+    setResetNotice(null)
+
+    try {
+      if (!isSignUpMode && isDemoCredentialPair(email, password)) {
+        setDemoSession(true)
+        router.replace("/dashboard")
+        return
+      }
+
+      if (isSignUpMode) {
+        await signUpWithEmail(email, password)
+      } else {
+        await signInWithEmail(email, password)
+      }
+
+      router.replace("/dashboard")
+    } catch (error) {
+      setAuthError(getErrorMessage(error))
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleGoogleLogin = () => {
-    setIsLoading(true)
-    // Mock Google login - navigate to dashboard
-    setTimeout(() => {
-      router.push("/dashboard")
-    }, 500)
+  const handleDemoSignIn = () => {
+    setEmail(DEMO_AUTH_EMAIL)
+    setPassword(DEMO_AUTH_PASSWORD)
+    setDemoSession(true)
+    router.replace("/dashboard")
   }
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true)
+    setAuthError(null)
+    setResetNotice(null)
+
+    try {
+      await signInWithGoogle()
+      router.replace("/dashboard")
+    } catch (error) {
+      setAuthError(getErrorMessage(error))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      setAuthError("Enter your email address first to receive a reset link.")
+      return
+    }
+
+    setIsLoading(true)
+    setAuthError(null)
+    setResetNotice(null)
+
+    try {
+      await sendPasswordReset(email)
+      setResetNotice("Password reset email sent. Check your inbox.")
+    } catch (error) {
+      setAuthError(getErrorMessage(error))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const title = isSignUpMode ? "Create your account" : "Welcome back"
+  const description = isSignUpMode
+    ? "Set up your Mentra account with email and password"
+    : "Sign in to your Mentra account"
 
   return (
     <div className="min-h-screen bg-background">
@@ -57,10 +161,22 @@ export default function LoginPage() {
       <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-6 py-12">
         <Card className="w-full max-w-md border-border">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Welcome back</CardTitle>
-            <CardDescription>Sign in to your Mentra account</CardDescription>
+            <CardTitle className="text-2xl">{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {authError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {authError}
+              </div>
+            )}
+
+            {resetNotice && (
+              <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground">
+                {resetNotice}
+              </div>
+            )}
+
             {/* Google Login */}
             <Button
               variant="outline"
@@ -116,11 +232,11 @@ export default function LoginPage() {
                   <Label htmlFor="password">Password</Label>
                   <button
                     type="button"
-                    className="text-sm text-muted-foreground hover:text-foreground cursor-not-allowed"
-                    disabled
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                    onClick={handleResetPassword}
+                    disabled={isLoading}
                   >
                     Forgot password?
-                    <span className="ml-1 text-xs">(Coming soon)</span>
                   </button>
                 </div>
                 <Input
@@ -137,13 +253,23 @@ export default function LoginPage() {
               </Button>
             </form>
 
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <p className="font-medium text-foreground">Week 2 demo login</p>
+              <p className="mt-1 text-muted-foreground">Email: {DEMO_AUTH_EMAIL}</p>
+              <p className="text-muted-foreground">Password: {DEMO_AUTH_PASSWORD}</p>
+              <Button type="button" variant="outline" className="mt-3 w-full" onClick={handleDemoSignIn}>
+                Use Demo Credentials
+              </Button>
+            </div>
+
             <p className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
+              {isSignUpMode ? "Already have an account? " : "Don&apos;t have an account? "}
               <button
-                onClick={handleGoogleLogin}
-                className="text-primary hover:underline font-medium"
+                type="button"
+                onClick={() => setIsSignUpMode(!isSignUpMode)}
+                className="font-medium text-primary hover:underline"
               >
-                Sign up
+                {isSignUpMode ? "Sign in" : "Sign up"}
               </button>
             </p>
 

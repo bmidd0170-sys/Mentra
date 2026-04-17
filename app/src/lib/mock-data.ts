@@ -9,6 +9,7 @@ export interface Organization {
   id: string
   name: string
   description?: string
+  gradingSystem?: string
   rules: string[]
   assignmentCount: number
   createdAt: string
@@ -47,6 +48,7 @@ export const mockOrganizations: Organization[] = [
     id: "1",
     name: "CS 301 - Data Structures",
     description: "Advanced data structures and algorithms course",
+    gradingSystem: "Letter Grade (A-F)",
     rules: [
       "Code must be properly commented",
       "Time complexity analysis required",
@@ -60,6 +62,7 @@ export const mockOrganizations: Organization[] = [
     id: "2",
     name: "ENG 201 - Technical Writing",
     description: "Technical and professional writing skills",
+    gradingSystem: "Percentage (0-100)",
     rules: [
       "Clear thesis statement",
       "Proper citations (APA format)",
@@ -73,6 +76,7 @@ export const mockOrganizations: Organization[] = [
     id: "3",
     name: "BUS 401 - Business Strategy",
     description: "Strategic management and business planning",
+    gradingSystem: "GPA (4.0 Scale)",
     rules: [
       "Executive summary required",
       "SWOT analysis included",

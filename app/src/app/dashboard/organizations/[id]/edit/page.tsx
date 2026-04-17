@@ -19,6 +19,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
 
   const [name, setName] = useState(organization?.name || "")
   const [description, setDescription] = useState(organization?.description || "")
+  const [gradingSystem, setGradingSystem] = useState(organization?.gradingSystem || "")
   const [ruleInput, setRuleInput] = useState("")
   const [rules, setRules] = useState<string[]>(organization?.rules || [])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -52,7 +53,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || rules.length === 0) return
+    if (!name.trim() || !gradingSystem.trim() || rules.length === 0) return
 
     setIsSubmitting(true)
     // Mock submission
@@ -122,6 +123,17 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="gradingSystem">Grading System *</Label>
+              <Input
+                id="gradingSystem"
+                placeholder="e.g., Letter Grade (A-F), Percentage, GPA (4.0), Pass/Fail"
+                value={gradingSystem}
+                onChange={(e) => setGradingSystem(e.target.value)}
+                required
+              />
+            </div>
+
             {/* Manual Rule Input */}
             <div className="space-y-2">
               <Label htmlFor="rules">Add Rules</Label>
@@ -178,7 +190,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
           <Button
             type="submit"
             className="flex-1"
-            disabled={!name.trim() || rules.length === 0 || isSubmitting}
+            disabled={!name.trim() || !gradingSystem.trim() || rules.length === 0 || isSubmitting}
           >
             {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>

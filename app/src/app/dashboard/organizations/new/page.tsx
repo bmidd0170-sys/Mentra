@@ -16,6 +16,7 @@ export default function NewOrganizationPage() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [gradingSystem, setGradingSystem] = useState("")
   const [ruleInput, setRuleInput] = useState("")
   const [rules, setRules] = useState<string[]>([])
   const [useAI, setUseAI] = useState(false)
@@ -57,7 +58,7 @@ export default function NewOrganizationPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || rules.length === 0) return
+    if (!name.trim() || !gradingSystem.trim() || rules.length === 0) return
 
     setIsSubmitting(true)
     // Mock submission
@@ -135,6 +136,17 @@ export default function NewOrganizationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="gradingSystem">Grading System *</Label>
+              <Input
+                id="gradingSystem"
+                placeholder="e.g., Letter Grade (A-F), Percentage, GPA (4.0), Pass/Fail"
+                value={gradingSystem}
+                onChange={(e) => setGradingSystem(e.target.value)}
+                required
+              />
+            </div>
+
             {/* AI Toggle */}
             <div className="flex items-center justify-between rounded-lg border border-border p-4">
               <div className="flex items-center gap-3">
@@ -241,7 +253,7 @@ export default function NewOrganizationPage() {
           <Button
             type="submit"
             className="flex-1"
-            disabled={!name.trim() || rules.length === 0 || isSubmitting}
+            disabled={!name.trim() || !gradingSystem.trim() || rules.length === 0 || isSubmitting}
           >
             {isSubmitting ? "Creating..." : "Create Organization"}
           </Button>

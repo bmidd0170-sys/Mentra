@@ -182,6 +182,9 @@ export default function DashboardPage() {
                     {org.rules.length} rules
                   </Badge>
                 </div>
+                {org.gradingSystem && (
+                  <p className="mt-2 text-xs text-muted-foreground">Grading: {org.gradingSystem}</p>
+                )}
               </CardContent>
             </Card>
           ))}

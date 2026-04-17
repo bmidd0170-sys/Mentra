@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
@@ -25,90 +25,171 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { mockUser } from "@/lib/mock-data"
-import { User, Bell, Moon, Shield, Trash2 } from "lucide-react"
+import { useAuth } from "@/components/firebase-auth-provider"
+import { Bell, Moon, Shield, Trash2 } from "lucide-react"
+
+type ThemePreference = "light" | "dark" | "system"
+
+type SettingsPreferences = {
+  emailNotifications: boolean
+  feedbackAlerts: boolean
+  dueDateReminders: boolean
+  theme: ThemePreference
+  shareUsageData: boolean
+  publicProfile: boolean
+}
+
+const SETTINGS_STORAGE_KEY = "mentra-settings"
+
+const defaultSettings: SettingsPreferences = {
+  emailNotifications: true,
+  feedbackAlerts: true,
+  dueDateReminders: true,
+  theme: "system",
+  shareUsageData: false,
+  publicProfile: false,
+}
+
+const getInitialSettings = (): SettingsPreferences => {
+  if (typeof window === "undefined") {
+    return defaultSettings
+  }
+
+  try {
+    const rawSettings = localStorage.getItem(SETTINGS_STORAGE_KEY)
+
+    if (!rawSettings) {
+      return defaultSettings
+    }
+
+    const parsed = JSON.parse(rawSettings) as Partial<SettingsPreferences>
+
+    return {
+      emailNotifications: parsed.emailNotifications ?? defaultSettings.emailNotifications,
+      feedbackAlerts: parsed.feedbackAlerts ?? defaultSettings.feedbackAlerts,
+      dueDateReminders: parsed.dueDateReminders ?? defaultSettings.dueDateReminders,
+      theme: parsed.theme ?? defaultSettings.theme,
+      shareUsageData: parsed.shareUsageData ?? defaultSettings.shareUsageData,
+      publicProfile: parsed.publicProfile ?? defaultSettings.publicProfile,
+    }
+  } catch {
+    localStorage.removeItem(SETTINGS_STORAGE_KEY)
+    return defaultSettings
+  }
+}
 
 export default function SettingsPage() {
-  const [name, setName] = useState(mockUser.name)
-  const [email, setEmail] = useState(mockUser.email)
-  const [isSaving, setIsSaving] = useState(false)
+  const router = useRouter()
+  const { user, loading, deleteCurrentUser } = useAuth()
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   
   // Notification preferences
-  const [emailNotifications, setEmailNotifications] = useState(true)
-  const [feedbackAlerts, setFeedbackAlerts] = useState(true)
-  const [dueDateReminders, setDueDateReminders] = useState(true)
+  const [emailNotifications, setEmailNotifications] = useState(() => getInitialSettings().emailNotifications)
+  const [feedbackAlerts, setFeedbackAlerts] = useState(() => getInitialSettings().feedbackAlerts)
+  const [dueDateReminders, setDueDateReminders] = useState(() => getInitialSettings().dueDateReminders)
   
   // Appearance
-  const [theme, setTheme] = useState("system")
+  const [theme, setTheme] = useState<ThemePreference>(() => getInitialSettings().theme)
   
   // Privacy
-  const [shareUsageData, setShareUsageData] = useState(false)
-  const [publicProfile, setPublicProfile] = useState(false)
+  const [shareUsageData, setShareUsageData] = useState(() => getInitialSettings().shareUsageData)
+  const [publicProfile, setPublicProfile] = useState(() => getInitialSettings().publicProfile)
 
-  const handleSaveProfile = () => {
-    setIsSaving(true)
-    setTimeout(() => {
-      setIsSaving(false)
-    }, 500)
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login")
+    }
+  }, [loading, router, user])
+
+  useEffect(() => {
+    const settingsToPersist: SettingsPreferences = {
+      emailNotifications,
+      feedbackAlerts,
+      dueDateReminders,
+      theme,
+      shareUsageData,
+      publicProfile,
+    }
+
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsToPersist))
+  }, [emailNotifications, feedbackAlerts, dueDateReminders, theme, shareUsageData, publicProfile])
+
+  useEffect(() => {
+    const root = document.documentElement
+
+    if (theme === "dark") {
+      root.classList.add("dark")
+      return
+    }
+
+    if (theme === "light") {
+      root.classList.remove("dark")
+      return
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+
+    const applySystemTheme = (event?: MediaQueryListEvent) => {
+      const prefersDark = event ? event.matches : mediaQuery.matches
+      root.classList.toggle("dark", prefersDark)
+    }
+
+    applySystemTheme()
+    mediaQuery.addEventListener("change", applySystemTheme)
+
+    return () => {
+      mediaQuery.removeEventListener("change", applySystemTheme)
+    }
+  }, [theme])
+
+  const handleDeleteAccount = async () => {
+    setMessage(null)
+    setErrorMessage(null)
+    setIsDeleting(true)
+
+    try {
+      await deleteCurrentUser()
+      localStorage.removeItem(SETTINGS_STORAGE_KEY)
+      router.replace("/login")
+    } catch {
+      setErrorMessage("Could not delete account. You may need to sign in again and retry.")
+      setIsDeleting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
+        Loading settings...
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and preferences</p>
+        <p className="text-muted-foreground">Manage your app preferences and privacy controls</p>
       </div>
 
-      {/* Profile Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Profile</CardTitle>
-          </div>
-          <CardDescription>Update your personal information</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary text-xl font-semibold">
-              {name.split(" ").map((n) => n[0]).join("")}
-            </div>
-            <div>
-              <p className="font-medium text-foreground">{name}</p>
-              <p className="text-sm text-muted-foreground">{email}</p>
-            </div>
-          </div>
-          
-          <Separator />
-          
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <Button onClick={handleSaveProfile} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
-          </Button>
-        </CardContent>
-      </Card>
+      {message ? (
+        <p className="rounded-md border border-green-600/25 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+          {message}
+        </p>
+      ) : null}
 
-      {/* Notifications Section */}
+      {errorMessage ? (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </p>
+      ) : null}
+
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -166,7 +247,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Appearance Section */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -183,7 +263,7 @@ export default function SettingsPage() {
                 Choose your preferred color scheme
               </p>
             </div>
-            <Select value={theme} onValueChange={setTheme}>
+            <Select value={theme} onValueChange={(value) => setTheme(value as ThemePreference)}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
@@ -197,7 +277,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Privacy Section */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -239,7 +318,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Danger Zone */}
       <Card className="border-destructive/50">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -271,8 +349,12 @@ export default function SettingsPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Delete Account
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? "Deleting..." : "Delete Account"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
