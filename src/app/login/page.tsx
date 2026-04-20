@@ -9,12 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/components/firebase-auth-provider"
-import {
-  DEMO_AUTH_EMAIL,
-  DEMO_AUTH_PASSWORD,
-  isDemoCredentialPair,
-  setDemoSession,
-} from "@/lib/demo-auth"
 import { Zap, ArrowLeft } from "lucide-react"
 
 export default function LoginPage() {
@@ -70,12 +64,6 @@ export default function LoginPage() {
     setResetNotice(null)
 
     try {
-      if (!isSignUpMode && isDemoCredentialPair(email, password)) {
-        setDemoSession(true)
-        router.replace("/dashboard")
-        return
-      }
-
       if (isSignUpMode) {
         await signUpWithEmail(email, password)
       } else {
@@ -88,13 +76,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleDemoSignIn = () => {
-    setEmail(DEMO_AUTH_EMAIL)
-    setPassword(DEMO_AUTH_PASSWORD)
-    setDemoSession(true)
-    router.replace("/dashboard")
   }
 
   const handleGoogleLogin = async () => {
@@ -252,15 +233,6 @@ export default function LoginPage() {
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
-
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
-              <p className="font-medium text-foreground">Week 2 demo login</p>
-              <p className="mt-1 text-muted-foreground">Email: {DEMO_AUTH_EMAIL}</p>
-              <p className="text-muted-foreground">Password: {DEMO_AUTH_PASSWORD}</p>
-              <Button type="button" variant="outline" className="mt-3 w-full" onClick={handleDemoSignIn}>
-                Use Demo Credentials
-              </Button>
-            </div>
 
             <p className="text-center text-sm text-muted-foreground">
               {isSignUpMode ? "Already have an account? " : "Don&apos;t have an account? "}

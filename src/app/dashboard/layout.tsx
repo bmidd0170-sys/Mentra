@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { DEMO_AUTH_EMAIL, DEMO_AUTH_UID, getDemoSession } from "@/lib/demo-auth"
 import { mockNotifications } from "@/lib/mock-data"
 import { useAuth } from "@/components/firebase-auth-provider"
 import {
@@ -47,17 +46,16 @@ export default function DashboardLayout({
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [notifications] = useState(mockNotifications)
-  const isDemoSession = user?.uid === DEMO_AUTH_UID || getDemoSession()
 
   useEffect(() => {
-    if (!loading && !user && !isDemoSession) {
+    if (!loading && !user) {
       router.replace("/login")
     }
-  }, [isDemoSession, loading, router, user])
+  }, [loading, router, user])
 
   const unreadCount = notifications.filter((n) => !n.read).length
-  const userName = user?.displayName || (isDemoSession ? "Rob Launchpad" : null) || user?.email?.split("@")[0] || "Mentra user"
-  const userEmail = user?.email || (isDemoSession ? DEMO_AUTH_EMAIL : "Connected with Firebase")
+  const userName = user?.displayName || user?.email?.split("@")[0] || "Mentra user"
+  const userEmail = user?.email || "Connected with Firebase"
   const initials = userName
     .split(" ")
     .filter(Boolean)
@@ -73,7 +71,7 @@ export default function DashboardLayout({
     )
   }
 
-  if (!user && !isDemoSession) {
+  if (!user) {
     return null
   }
 

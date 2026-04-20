@@ -3,7 +3,7 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile
-    container_name: mentra-web
+    container_name: mentra-app
     command: npm run dev
     ports:
       - "3000:3000"

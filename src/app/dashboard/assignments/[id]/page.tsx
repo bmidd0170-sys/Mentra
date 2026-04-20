@@ -30,8 +30,14 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
 
   const [textContent, setTextContent] = useState("")
   const [linkContent, setLinkContent] = useState("")
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showFeedback, setShowFeedback] = useState(assignment?.status === "reviewed")
+  const [aiGrade, setAiGrade] = useState<string | null>(null)
+  const [aiScore, setAiScore] = useState<number | null>(null)
+  const [aiFeedback, setAiFeedback] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   if (!assignment) {
     return (
@@ -45,13 +51,100 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     )
   }
 
-  const handleSubmit = () => {
+  const validateAndSetFile = (file: File) => {
+    const maxBytes = 10 * 1024 * 1024
+    const allowedExtensions = ["pdf", "docx", "txt"]
+    const extension = file.name.split(".").pop()?.toLowerCase() || ""
+
+    if (!allowedExtensions.includes(extension)) {
+      setError("Unsupported file type. Please upload a PDF, DOCX, or TXT file.")
+      return
+    }
+
+    if (file.size > maxBytes) {
+      setError("File is too large. Maximum allowed size is 10MB.")
+      return
+    }
+
+    setUploadedFile(file)
+    setError(null)
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    validateAndSetFile(file)
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+
+    const file = e.dataTransfer.files?.[0]
+    if (!file) return
+    validateAndSetFile(file)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isDragOver) setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }
+
+  const handleSubmit = async () => {
     setIsSubmitting(true)
-    // Mock AI review
-    setTimeout(() => {
-      setIsSubmitting(false)
+    setError(null)
+    try {
+      let submissionContent = textContent || linkContent
+
+      if (!submissionContent && uploadedFile) {
+        if (uploadedFile.type === "text/plain") {
+          submissionContent = await uploadedFile.text()
+        } else {
+          submissionContent = `Submitted document: ${uploadedFile.name}`
+        }
+      }
+
+      if (!submissionContent) {
+        throw new Error("Please upload a file, paste text, or provide a link before submitting.")
+      }
+      
+      const response = await fetch("/api/review", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: submissionContent,
+          rules: assignment.rules,
+          assignmentName: assignment.name,
+          organizationName: assignment.organizationName,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to get AI review")
+      }
+
+      const data = await response.json()
+      setAiGrade(data.grade)
+      setAiScore(data.score)
+      setAiFeedback(data.feedback)
       setShowFeedback(true)
-    }, 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+      console.error("Error submitting for review:", err)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -65,15 +158,15 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
-  // Mock grade data based on assignment
-  const mockGrade = assignment.grade || "B+"
-  const mockScore = assignment.grade === "A-" ? 92 : assignment.grade === "B+" ? 87 : 85
-  const mockFeedback = assignment.feedback || [
+  // Use AI-generated data if available, otherwise fall back to mock
+  const mockGrade = aiGrade || assignment.grade || "B+"
+  const mockScore = aiScore || (assignment.grade === "A-" ? 92 : assignment.grade === "B+" ? 87 : 85)
+  const mockFeedback = aiFeedback.length > 0 ? aiFeedback : (assignment.feedback || [
     "Good overall structure and organization",
     "Consider adding more specific examples",
     "The introduction could be more engaging",
     "Sources are well-cited and relevant",
-  ]
+  ])
 
   return (
     <div className="space-y-6">
@@ -115,6 +208,19 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       {/* AI Feedback Section */}
       {showFeedback && (
         <div className="space-y-6">
+          {error && (
+            <Card className="border-red-500/20 bg-red-500/5">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 shrink-0 text-red-500 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-red-900">Error</h4>
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {/* Grade Card */}
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="pt-6">
@@ -150,16 +256,20 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {mockFeedback.map((feedback, index) => (
-                  <li key={index} className="flex items-start gap-3">
-                    {index < 2 ? (
-                      <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                    ) : (
-                      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-500" />
-                    )}
-                    <span className="text-foreground">{feedback}</span>
-                  </li>
-                ))}
+                {mockFeedback.map((feedback, index) => {
+                  // Detect if feedback is positive or negative based on keywords
+                  const isPositive = /^(good|great|excellent|well|strong|positive|appropriate|effective|clear|thorough)/i.test(feedback)
+                  return (
+                    <li key={index} className="flex items-start gap-3">
+                      {isPositive ? (
+                        <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                      ) : (
+                        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-500" />
+                      )}
+                      <span className="text-foreground">{feedback}</span>
+                    </li>
+                  )
+                })}
               </ul>
             </CardContent>
           </Card>
@@ -191,7 +301,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
             <CardDescription>Upload documents, share links, or paste text for AI review</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="text" className="w-full">
+            <Tabs defaultValue="upload" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="upload" className="flex items-center gap-2">
                   <Upload className="h-4 w-4" />
@@ -208,15 +318,37 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </TabsList>
 
               <TabsContent value="upload" className="mt-4">
-                <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-8 transition-colors hover:border-primary/50">
+                <input
+                  id="assignment-file-upload"
+                  type="file"
+                  accept=".pdf,.docx,.txt"
+                  className="hidden"
+                  onChange={handleFileInputChange}
+                />
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
+                    isDragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                  }`}
+                >
                   <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-center">
-                    <span className="font-medium text-primary cursor-pointer">Click to upload</span>{" "}
+                    <label htmlFor="assignment-file-upload" className="font-medium text-primary cursor-pointer">
+                      Click to upload
+                    </label>{" "}
                     <span className="text-muted-foreground">or drag and drop</span>
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     PDF, DOCX, TXT up to 10MB
                   </p>
+                  {uploadedFile && (
+                    <div className="mt-3 rounded-md bg-muted px-3 py-2 text-sm text-foreground">
+                      Selected: {uploadedFile.name} ({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
@@ -254,10 +386,58 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               </TabsContent>
             </Tabs>
 
+            {(uploadedFile || linkContent.trim() || textContent.trim()) && (
+              <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4">
+                <h4 className="text-sm font-semibold text-foreground">Submission Source Preview</h4>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This is the content source that will be sent for AI review when you submit.
+                </p>
+
+                <div className="mt-3 grid gap-2 text-sm">
+                  <div className="rounded-md bg-background px-3 py-2">
+                    <span className="text-muted-foreground">Will submit from: </span>
+                    <span className="font-medium text-foreground">
+                      {textContent.trim()
+                        ? "Pasted text"
+                        : linkContent.trim()
+                          ? "Shared link"
+                          : "Uploaded file"}
+                    </span>
+                  </div>
+
+                  {uploadedFile && (
+                    <div className="rounded-md bg-background px-3 py-2">
+                      <div className="font-medium text-foreground">Uploaded File</div>
+                      <div className="text-muted-foreground">
+                        {uploadedFile.name} ({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </div>
+                    </div>
+                  )}
+
+                  {linkContent.trim() && (
+                    <div className="rounded-md bg-background px-3 py-2">
+                      <div className="font-medium text-foreground">Link</div>
+                      <div className="truncate text-muted-foreground">{linkContent.trim()}</div>
+                    </div>
+                  )}
+
+                  {textContent.trim() && (
+                    <div className="rounded-md bg-background px-3 py-2">
+                      <div className="font-medium text-foreground">Text ({textContent.trim().length} chars)</div>
+                      <div className="text-muted-foreground">
+                        {textContent.trim().slice(0, 220)}
+                        {textContent.trim().length > 220 ? "..." : ""}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 flex justify-end">
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || (!textContent && !linkContent)}
+                disabled={isSubmitting || (!textContent && !linkContent && !uploadedFile)}
                 className="min-w-32"
               >
                 {isSubmitting ? (
@@ -268,7 +448,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                 ) : (
                   <>
                     <Send className="mr-2 h-4 w-4" />
-                    Submit for Review
+                    Submit for AI Review
                   </>
                 )}
               </Button>

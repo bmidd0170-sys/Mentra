@@ -39,21 +39,41 @@ export default function NewOrganizationPage() {
     setRules(rules.filter((r) => r !== rule))
   }
 
-  const handleGenerateAIRules = () => {
+  const handleGenerateAIRules = async () => {
+    if (!name.trim() || !description.trim()) {
+      alert("Please enter both organization name and description to generate AI rules")
+      return
+    }
+
     setIsGenerating(true)
-    // Mock AI rule generation
-    setTimeout(() => {
-      const aiRules = [
-        "Clear introduction and conclusion",
-        "Proper grammar and spelling",
-        "Evidence-based arguments",
-        "Logical structure and flow",
-        "Original content (no plagiarism)",
-      ]
-      setRules([...rules, ...aiRules.filter((r) => !rules.includes(r))])
-      setIsGenerating(false)
+    try {
+      const response = await fetch("/api/generate-rules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          organizationName: name,
+          description: description,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to generate rules")
+      }
+
+      const data = await response.json()
+      // Add AI-generated rules to existing rules, avoiding duplicates
+      const newRules = data.rules.filter((r: string) => !rules.includes(r))
+      setRules([...rules, ...newRules])
       setUseAI(false)
-    }, 1500)
+    } catch (error) {
+      console.error("Error generating rules:", error)
+      alert(`Failed to generate rules: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {

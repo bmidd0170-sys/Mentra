@@ -1,83 +1,142 @@
-Summary: 
-You’re building a web application that helps users improve their work before it’s officially graded by providing instant, AI-powered feedback based on structured criteria.
+# Mentra
 
-At its core, the platform allows users to create or import “organizations,” each with its own set of rules, standards, or grading criteria. Users can then recreate assignments within those organizations, select the relevant rules, and submit their work. The AI evaluates the submission against those criteria, generates a grade, and provides detailed, actionable feedback on how to improve.
+Mentra is a Next.js web application that gives users immediate, AI-powered assignment feedback before official grading. Instead of waiting for delayed review, users can create organizations with custom criteria, submit work, and iterate based on actionable feedback.
 
-The goal of the app is to eliminate the long wait for feedback and reduce uncertainty by giving users immediate insight into their performance. Instead of receiving a final grade with no chance to revise, users can iteratively improve their work, track their progress over time, and better understand expectations turning grading into a continuous learning process rather than a one-time evaluation.
+## Why Mentra
 
-Project Features
+Traditional grading is often delayed and final. Mentra turns grading into a continuous learning loop:
 
-Intro Page
-The Intro Page provides a clear overview of the platform, explaining its purpose and how it works. It includes rotating user testimonials or reviews to build trust and credibility. An example problem scenario is presented to highlight the core issue the platform solves—delayed feedback and lack of guidance on assignments. Clear call-to-action buttons guide users to the next steps, such as signing up or logging in.
+- Define organizations (courses/programs/teams) with custom rules
+- Create assignments under each organization
+- Submit work and receive AI-generated score + guidance
+- Improve and resubmit with clearer expectations
 
-Login Page
-Users can securely access their accounts through multiple authentication options:
-Google Authentication
-Email and Password login
-“Forgot Password” (planned for future implementation)
-Links to Terms of Service and Privacy Policy
+## Core Features
 
-Header Navigation
-The header remains consistent across the platform and includes:
-Home
-Settings
-Logout
-Notifications (bell icon for alerts and updates)
+- Intro and onboarding flow with clear call-to-action
+- Login support (Firebase-based auth wiring + demo login mode)
+- Dashboard with organizations and assignment overview
+- Organization management (create/view/edit flows)
+- Assignment management (create/view details and submit work)
+- AI-generated rule creation for organizations
+- AI grading and feedback for assignment submissions
+- Profile and settings pages
+- Shared app header/navigation across authenticated screens
 
-Home Page
-The Home Page acts as the central dashboard for the user. It displays:
-A list of all saved organizations
-The total number of organizations in the account
-A summary of assignments that need review
-Buttons to create new organizations
-Management options for each organization (edit name, modify rule sets, delete, etc.)
+## Tech Stack
 
-Add Organization Page
-This page allows users to create and configure a new organization by:
-Entering the organization’s name
-Defining a rule set manually (with support for structured inputs like commas, brackets, etc.) or uploading rules
-Adding descriptions to each rule for clarity
-If no rule set is provided, an AI feature will attempt to generate one by researching the specified organization.
-Additionally, users can:
-Provide a link, description, or screenshot of the organization’s layout
-Allow the AI to recreate a familiar interface and summarize how each section functions
-If no layout is provided, a default structure will be used.
+- Next.js 16 (App Router)
+- React 19 + TypeScript
+- Prisma + PostgreSQL
+- OpenAI API (`gpt-4o-mini`) for review and rule generation
+- Firebase client auth integration
+- Tailwind CSS v4 + Radix UI components
 
-Specific Organization Page
-Each organization has its own dedicated page that includes:
-A list of all assignments associated with that organization
-The total number of assignments
-A search bar for quick navigation
-Clickable assignments for easy access
-A “Create Assignment” button to add new tasks and select applicable rules
-A deletion tool for removing selected assignments
-A progression graph showing average performance over time (updated every 24 hours)
+## Project Structure
 
-Specific Assignment Page
-This page focuses on a single assignment and provides:
-Assignment details and selected rules/criteria
-Current grade (if available)
-File upload options (documents, links, repositories, etc.)
-Submission functionality
-Once submitted, the AI will:
-Analyze the assignment based on the selected rules
-Generate a grade
-Provide actionable feedback for improvement
-Additional features include:
-Settings to edit the assignment name and rule set
-A progression graph showing improvement over time for that specific assignment
+- `src/app` - Routes and API handlers
+- `src/components` - Shared UI and app components
+- `src/lib` - Firebase config, demo auth, utilities, mock data
+- `prisma/schema.prisma` - Database schema
+- `AI_SETUP.md` - AI setup notes
+- `AI_TESTING.md` - AI testing scenarios
 
-Settings Page
-The Settings Page allows users to customize their experience:
-Profile: Update name, email, and account details
-Appearance: Adjust themes and text size
-Notifications: Control what alerts are received
-Privacy & Data: Manage data collection preferences
-Account Management: Delete organizations or the entire account
+## Getting Started
 
-Notifications System
-The notifications feature includes:
-A dropdown menu displaying unread notifications
-Alerts related to assignment updates and grades
-Optional email reminders triggered by recent submission results
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure environment variables
+
+Copy `.env.example` to `.env.local` (or `.env`) and fill in real values:
+
+```env
+DATABASE_URL="postgresql://mentra:mentra@localhost:5432/mentra?schema=public"
+OPENAI_API_KEY="sk_your_key_here"
+
+NEXT_PUBLIC_FIREBASE_API_KEY="..."
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="..."
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="..."
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="..."
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="..."
+NEXT_PUBLIC_FIREBASE_APP_ID="..."
+```
+
+### 3. Start PostgreSQL (local Docker)
+
+If you only need the database container:
+
+```bash
+docker compose up -d db
+```
+
+### 4. Prepare Prisma
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+### 5. Run the app
+
+```bash
+npm run dev
+```
+
+Open http://localhost:3000.
+
+## Demo Login
+
+For local testing without full auth setup, a demo credential path is available:
+
+- Email: `rob@launchpadphilly.org`
+- Password: `password123`
+
+## Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production build
+- `npm run lint` - Run ESLint
+
+## API Endpoints
+
+### POST `/api/review`
+
+Evaluates submission content against assignment rules and returns:
+
+- letter grade
+- numeric score
+- feedback list
+
+### POST `/api/generate-rules`
+
+Generates 5-8 grading rules from organization name + description.
+
+## Docker Notes
+
+The current `docker-compose.yml` references an `./app` subdirectory. This repository is currently rooted at the project top-level, so update compose paths if you want full app + db containerized development from this root.
+
+## Documentation
+
+- `AI_SETUP.md` - OpenAI key setup and endpoint examples
+- `AI_TESTING.md` - End-to-end AI test scenarios and troubleshooting
+- `Week1.md` and `Week2.md` - milestone planning docs
+- `Wireframe.md` - UI planning notes
+
+## Roadmap
+
+- Assignment history and progression tracking visuals
+- Better notification workflows and reminders
+- More robust file upload pipeline (documents/repos)
+- Streaming AI feedback and richer rubric analytics
+
+## Learn More
+
+- Next.js docs: https://nextjs.org/docs
+- Prisma docs: https://www.prisma.io/docs
+- OpenAI API docs: https://platform.openai.com/docs
 

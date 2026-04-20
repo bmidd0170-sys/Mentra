@@ -84,15 +84,15 @@ export default function SettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  
+
   // Notification preferences
   const [emailNotifications, setEmailNotifications] = useState(() => getInitialSettings().emailNotifications)
   const [feedbackAlerts, setFeedbackAlerts] = useState(() => getInitialSettings().feedbackAlerts)
   const [dueDateReminders, setDueDateReminders] = useState(() => getInitialSettings().dueDateReminders)
-  
+
   // Appearance
   const [theme, setTheme] = useState<ThemePreference>(() => getInitialSettings().theme)
-  
+
   // Privacy
   const [shareUsageData, setShareUsageData] = useState(() => getInitialSettings().shareUsageData)
   const [publicProfile, setPublicProfile] = useState(() => getInitialSettings().publicProfile)
@@ -212,9 +212,9 @@ export default function SettingsPage() {
               onCheckedChange={setEmailNotifications}
             />
           </div>
-          
+
           <Separator />
-          
+
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="feedback-alerts">Feedback Alerts</Label>
@@ -228,9 +228,9 @@ export default function SettingsPage() {
               onCheckedChange={setFeedbackAlerts}
             />
           </div>
-          
+
           <Separator />
-          
+
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="due-reminders">Due Date Reminders</Label>
@@ -299,9 +299,9 @@ export default function SettingsPage() {
               onCheckedChange={setShareUsageData}
             />
           </div>
-          
+
           <Separator />
-          
+
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="public-profile">Public Profile</Label>

@@ -50,11 +50,10 @@ export default function AppHeader() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                      active
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition ${active
                         ? "bg-[#ccfbf1] text-[#134e4a]"
                         : "text-slate-700 hover:bg-slate-100"
-                    }`}
+                      }`}
                   >
                     {item.label}
                   </Link>
