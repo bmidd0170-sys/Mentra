@@ -17,7 +17,7 @@ import {
   updateEmail,
   updateProfile,
 } from "firebase/auth"
-import { auth } from "@/lib/firebase"
+import { getFirebaseAuth } from "@/lib/firebase"
 
 type AuthContextValue = {
   user: User | null
@@ -44,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
 
     const initializeAuth = async () => {
+      const auth = getFirebaseAuth()
+
       try {
         await setPersistence(auth, browserLocalPersistence)
       } catch {
@@ -72,19 +74,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     signInWithGoogle: async () => {
+      const auth = getFirebaseAuth()
       const provider = new GoogleAuthProvider()
       await signInWithPopup(auth, provider)
     },
     signInWithEmail: async (email, password) => {
+      const auth = getFirebaseAuth()
       await signInWithEmailAndPassword(auth, email, password)
     },
     signUpWithEmail: async (email, password) => {
+      const auth = getFirebaseAuth()
       await createUserWithEmailAndPassword(auth, email, password)
     },
     signOutUser: async () => {
+      const auth = getFirebaseAuth()
       await signOut(auth)
     },
     deleteCurrentUser: async () => {
+      const auth = getFirebaseAuth()
+
       if (!auth.currentUser) {
         throw new Error("No authenticated user is available.")
       }
@@ -93,6 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
     },
     updateDisplayName: async (displayName) => {
+      const auth = getFirebaseAuth()
+
       if (!auth.currentUser) {
         throw new Error("No authenticated user is available.")
       }
@@ -102,6 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(auth.currentUser ? ({ ...auth.currentUser } as User) : null)
     },
     updatePhotoURL: async (photoURL) => {
+      const auth = getFirebaseAuth()
+
       if (!auth.currentUser) {
         throw new Error("No authenticated user is available.")
       }
@@ -111,6 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(auth.currentUser ? ({ ...auth.currentUser } as User) : null)
     },
     updateEmailAddress: async (email) => {
+      const auth = getFirebaseAuth()
+
       if (!auth.currentUser) {
         throw new Error("No authenticated user is available.")
       }
@@ -120,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(auth.currentUser ? ({ ...auth.currentUser } as User) : null)
     },
     sendPasswordReset: async (email) => {
+      const auth = getFirebaseAuth()
       await sendPasswordResetEmail(auth, email)
     },
   }

@@ -10,15 +10,34 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-const missingKeys = Object.entries(firebaseConfig)
-  .filter(([, value]) => !value)
-  .map(([key]) => key)
+let authInstance: ReturnType<typeof getAuth> | null = null
 
-if (missingKeys.length > 0) {
-  throw new Error(`Missing Firebase environment variables: ${missingKeys.join(", ")}`)
+function getMissingFirebaseKeys() {
+  return Object.entries(firebaseConfig)
+    .filter(([, value]) => !value)
+    .map(([key]) => key)
 }
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
-const auth = getAuth(app)
+function ensureFirebaseConfig() {
+  const missingKeys = getMissingFirebaseKeys()
 
-export { app, auth }
+  if (missingKeys.length > 0) {
+    throw new Error(`Missing Firebase environment variables: ${missingKeys.join(", ")}`)
+  }
+
+  return firebaseConfig as Required<typeof firebaseConfig>
+}
+
+function getFirebaseAuth() {
+  if (authInstance) {
+    return authInstance
+  }
+
+  const config = ensureFirebaseConfig()
+  const app = getApps().length ? getApp() : initializeApp(config)
+  authInstance = getAuth(app)
+
+  return authInstance
+}
+
+export { getFirebaseAuth }
