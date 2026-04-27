@@ -5,7 +5,7 @@
 ### 1. Set Up OpenAI API Key
 
 1. Get your API key from [OpenAI Platform](https://platform.openai.com/account/api-keys)
-2. Create `app/.env.local` with:
+2. Create `.env.local` in the repository root with:
    ```
    OPENAI_API_KEY=sk_your_actual_key_here
    ```
@@ -13,7 +13,6 @@
 ### 2. Start Dev Server
 
 ```bash
-cd app
 npm run dev
 ```
 

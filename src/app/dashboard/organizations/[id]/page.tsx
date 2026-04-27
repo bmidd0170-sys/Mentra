@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, use } from "react"
+import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { mockOrganizations, mockAssignments, type Assignment } from "@/lib/mock-data"
 import {
   ArrowLeft,
   Plus,
@@ -39,22 +38,85 @@ import {
   FileText,
 } from "lucide-react"
 
+interface OrganizationDetail {
+  id: string
+  name: string
+  description?: string | null
+  gradingSystem?: string | null
+  rules: string[]
+}
+
+interface Assignment {
+  id: string
+  name: string
+  organizationId: string
+  organizationName: string
+  rules: string[]
+  status: "pending" | "reviewed" | "submitted"
+  grade?: string
+  updatedAt: string
+}
+
 export default function OrganizationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const organization = mockOrganizations.find((o) => o.id === id)
-  const orgAssignments = mockAssignments.filter((a) => a.organizationId === id)
 
-  const [assignments, setAssignments] = useState(orgAssignments)
+  const [organization, setOrganization] = useState<OrganizationDetail | null>(null)
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deleteAssignments, setDeleteAssignments] = useState<Assignment[] | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    const loadOrganization = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+
+      try {
+        const response = await fetch(`/api/organizations/${id}`)
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to load organization")
+        }
+
+        const data = await response.json()
+        if (active) {
+          setOrganization(data.organization)
+          setAssignments(data.assignments || [])
+        }
+      } catch (error) {
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load organization")
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadOrganization()
+
+    return () => {
+      active = false
+    }
+  }, [id])
+
+  if (isLoading) {
+    return <div className="py-12 text-center text-muted-foreground">Loading organization...</div>
+  }
 
   if (!organization) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <h1 className="text-2xl font-bold text-foreground">Organization not found</h1>
-        <p className="mt-2 text-muted-foreground">The organization you&apos;re looking for doesn&apos;t exist.</p>
+        <p className="mt-2 text-muted-foreground">
+          {loadError || "The organization you&apos;re looking for doesn&apos;t exist."}
+        </p>
         <Link href="/dashboard" className="mt-4">
           <Button>Go to Dashboard</Button>
         </Link>

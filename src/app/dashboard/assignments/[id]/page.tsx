@@ -2,6 +2,7 @@
 
 import { useState, use } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -24,6 +25,36 @@ import {
   Sparkles,
 } from "lucide-react"
 
+async function getErrorMessage(response: Response, fallback: string) {
+  try {
+    const data = await response.json()
+    if (data && typeof data.error === "string") {
+      return data.error
+    }
+  } catch {
+    // Ignore JSON parsing errors and fall back to response text.
+  }
+
+  const text = await response.text()
+  return text || fallback
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error("Unable to read selected file."))
+    }
+    reader.onerror = () => reject(new Error("Unable to read selected file."))
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function AssignmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const assignment = mockAssignments.find((a) => a.id === id)
@@ -31,6 +62,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const [textContent, setTextContent] = useState("")
   const [linkContent, setLinkContent] = useState("")
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [screenshotDataUrl, setScreenshotDataUrl] = useState<string | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showFeedback, setShowFeedback] = useState(assignment?.status === "reviewed")
@@ -51,29 +83,41 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     )
   }
 
-  const validateAndSetFile = (file: File) => {
-    const maxBytes = 10 * 1024 * 1024
-    const allowedExtensions = ["pdf", "docx", "txt"]
+  const validateAndSetFile = async (file: File) => {
+    const maxDocumentBytes = 10 * 1024 * 1024
+    const maxImageBytes = 5 * 1024 * 1024
+    const allowedExtensions = ["docx", "txt", "png", "jpg", "jpeg", "webp"]
     const extension = file.name.split(".").pop()?.toLowerCase() || ""
+    const isImage = file.type.startsWith("image/")
 
     if (!allowedExtensions.includes(extension)) {
-      setError("Unsupported file type. Please upload a PDF, DOCX, or TXT file.")
+      setError("Unsupported file type. Please upload DOCX, TXT, or screenshots (PNG/JPG/JPEG/WEBP).")
       return
     }
 
-    if (file.size > maxBytes) {
+    if (isImage && file.size > maxImageBytes) {
+      setError("Screenshot is too large. Maximum allowed screenshot size is 5MB.")
+      return
+    }
+
+    if (!isImage && file.size > maxDocumentBytes) {
       setError("File is too large. Maximum allowed size is 10MB.")
       return
     }
 
     setUploadedFile(file)
+    if (isImage) {
+      setScreenshotDataUrl(await fileToDataUrl(file))
+    } else {
+      setScreenshotDataUrl(null)
+    }
     setError(null)
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    validateAndSetFile(file)
+    void validateAndSetFile(file)
   }
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -83,7 +127,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
 
     const file = e.dataTransfer.files?.[0]
     if (!file) return
-    validateAndSetFile(file)
+    void validateAndSetFile(file)
   }
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -103,10 +147,16 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     setError(null)
     try {
       let submissionContent = textContent || linkContent
+      let screenshotForReview = screenshotDataUrl
 
       if (!submissionContent && uploadedFile) {
         if (uploadedFile.type === "text/plain") {
           submissionContent = await uploadedFile.text()
+        } else if (uploadedFile.type.startsWith("image/")) {
+          if (!screenshotForReview) {
+            screenshotForReview = await fileToDataUrl(uploadedFile)
+          }
+          submissionContent = `Submitted screenshot: ${uploadedFile.name}`
         } else {
           submissionContent = `Submitted document: ${uploadedFile.name}`
         }
@@ -116,22 +166,31 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
         throw new Error("Please upload a file, paste text, or provide a link before submitting.")
       }
       
+      const formData = new FormData()
+
+      if (textContent.trim()) {
+        formData.append("content", textContent.trim())
+      } else if (linkContent.trim()) {
+        formData.append("content", linkContent.trim())
+      } else if (uploadedFile) {
+        formData.append("file", uploadedFile)
+      }
+
+      if (screenshotForReview) {
+        formData.append("screenshot", screenshotForReview)
+      }
+
+      formData.append("rules", JSON.stringify(assignment.rules))
+      formData.append("assignmentName", assignment.name)
+      formData.append("organizationName", assignment.organizationName)
+
       const response = await fetch("/api/review", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content: submissionContent,
-          rules: assignment.rules,
-          assignmentName: assignment.name,
-          organizationName: assignment.organizationName,
-        }),
+        body: formData,
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to get AI review")
+        throw new Error(await getErrorMessage(response, "Failed to get AI review"))
       }
 
       const data = await response.json()
@@ -321,7 +380,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                 <input
                   id="assignment-file-upload"
                   type="file"
-                  accept=".pdf,.docx,.txt"
+                  accept=".docx,.txt,.png,.jpg,.jpeg,.webp,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp"
                   className="hidden"
                   onChange={handleFileInputChange}
                 />
@@ -342,11 +401,23 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                     <span className="text-muted-foreground">or drag and drop</span>
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    PDF, DOCX, TXT up to 10MB
+                    DOCX, TXT up to 10MB. Screenshots (PNG/JPG/WEBP) up to 5MB.
                   </p>
                   {uploadedFile && (
                     <div className="mt-3 rounded-md bg-muted px-3 py-2 text-sm text-foreground">
                       Selected: {uploadedFile.name} ({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </div>
+                  )}
+                  {screenshotDataUrl && (
+                    <div className="mt-4 w-full max-w-xl overflow-hidden rounded-md border border-border bg-background">
+                      <Image
+                        src={screenshotDataUrl}
+                        alt="Uploaded screenshot preview"
+                        width={1280}
+                        height={720}
+                        className="h-auto w-full"
+                        unoptimized
+                      />
                     </div>
                   )}
                 </div>
@@ -407,7 +478,9 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
 
                   {uploadedFile && (
                     <div className="rounded-md bg-background px-3 py-2">
-                      <div className="font-medium text-foreground">Uploaded File</div>
+                      <div className="font-medium text-foreground">
+                        {uploadedFile.type.startsWith("image/") ? "Uploaded Screenshot" : "Uploaded File"}
+                      </div>
                       <div className="text-muted-foreground">
                         {uploadedFile.name} ({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)
                       </div>

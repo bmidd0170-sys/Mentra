@@ -1,10 +1,55 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockOrganizations } from "@/lib/mock-data";
+
+interface OrganizationSummary {
+  id: string;
+  name: string;
+  rules: string[];
+}
 
 export default function NewAssignmentPage() {
+  const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadOrganizations = async () => {
+      try {
+        const response = await fetch("/api/organizations");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to load organizations");
+        }
+
+        const data = await response.json();
+        if (active) {
+          setOrganizations(data.organizations || []);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Failed to load organizations");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadOrganizations();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
@@ -14,8 +59,11 @@ export default function NewAssignmentPage() {
         </p>
       </div>
 
+      {loading && <p className="text-sm text-muted-foreground">Loading organizations...</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
       <div className="grid gap-4 sm:grid-cols-2">
-        {mockOrganizations.map((organization) => (
+        {organizations.map((organization) => (
           <Card key={organization.id} className="transition-all hover:border-primary/50 hover:shadow-md">
             <CardHeader>
               <CardTitle className="text-base">{organization.name}</CardTitle>

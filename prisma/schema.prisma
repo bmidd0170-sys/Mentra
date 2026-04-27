@@ -13,6 +13,7 @@ model Organization {
   name            String
   description     String?
   gradingSystem   String?
+  gradingRubric   String?              // JSON array of grade entries: [{ grade, minScore, maxScore, description }, ...]
   createdBy       User?                @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   rules           Rule[]
   assignments     Assignment[]

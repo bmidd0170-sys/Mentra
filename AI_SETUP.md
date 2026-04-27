@@ -13,7 +13,7 @@
 ### 2. Add to Your Environment
 
 #### Development (.env.local)
-Create or update `app/.env.local`:
+Create or update `.env.local` in the repository root:
 ```
 OPENAI_API_KEY=sk-your-api-key-here
 ```
@@ -27,7 +27,6 @@ Add to your deployment platform's environment variables:
 
 Test that the API is working:
 ```bash
-cd app
 npm run dev
 ```
 

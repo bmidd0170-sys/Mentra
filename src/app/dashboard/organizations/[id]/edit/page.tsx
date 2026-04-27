@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, use } from "react"
+import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,26 +9,100 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { mockOrganizations } from "@/lib/mock-data"
 import { ArrowLeft, Plus, X } from "lucide-react"
+import { GradingTable, type GradeEntry } from "@/components/GradingTable"
+
+type OrganizationEditData = {
+  id: string
+  name: string
+  description?: string | null
+  gradingSystem?: string | null
+  gradingRubric?: GradeEntry[]
+  rules: string[]
+}
+
+async function getErrorMessage(response: Response, fallback: string) {
+  try {
+    const data = await response.json()
+    if (data && typeof data.error === "string") {
+      return data.error
+    }
+  } catch {
+    // Fall back to plain text below.
+  }
+
+  const text = await response.text()
+  return text || fallback
+}
 
 export default function EditOrganizationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const organization = mockOrganizations.find((o) => o.id === id)
-
-  const [name, setName] = useState(organization?.name || "")
-  const [description, setDescription] = useState(organization?.description || "")
-  const [gradingSystem, setGradingSystem] = useState(organization?.gradingSystem || "")
+  const [organization, setOrganization] = useState<OrganizationEditData | null>(null)
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [gradingSystem, setGradingSystem] = useState("")
+  const [gradingRubric, setGradingRubric] = useState<GradeEntry[]>([])
   const [ruleInput, setRuleInput] = useState("")
-  const [rules, setRules] = useState<string[]>(organization?.rules || [])
+  const [rules, setRules] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    const loadOrganization = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+
+      try {
+        const response = await fetch(`/api/organizations/${id}`)
+
+        if (!response.ok) {
+          throw new Error(await getErrorMessage(response, "Failed to load organization"))
+        }
+
+        const data = await response.json()
+
+        if (active) {
+          const loadedOrganization: OrganizationEditData = data.organization
+          setOrganization(loadedOrganization)
+          setName(loadedOrganization.name || "")
+          setDescription(loadedOrganization.description || "")
+          setGradingSystem(loadedOrganization.gradingSystem || "")
+          setGradingRubric(loadedOrganization.gradingRubric || [])
+          setRules(loadedOrganization.rules || [])
+        }
+      } catch (error) {
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load organization")
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadOrganization()
+
+    return () => {
+      active = false
+    }
+  }, [id])
+
+  if (isLoading) {
+    return <div className="py-12 text-center text-muted-foreground">Loading organization...</div>
+  }
 
   if (!organization) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <h1 className="text-2xl font-bold text-foreground">Organization not found</h1>
-        <p className="mt-2 text-muted-foreground">The organization you&apos;re looking for doesn&apos;t exist.</p>
+        <p className="mt-2 text-muted-foreground">
+          {loadError || "The organization you&apos;re looking for doesn&apos;t exist."}
+        </p>
         <Link href="/dashboard" className="mt-4">
           <Button>Go to Dashboard</Button>
         </Link>
@@ -51,15 +125,35 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
     setRules(rules.filter((r) => r !== rule))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !gradingSystem.trim() || rules.length === 0) return
+    if (!name.trim() || !gradingSystem.trim() || rules.length === 0 || gradingRubric.length === 0) return
 
     setIsSubmitting(true)
-    // Mock submission
-    setTimeout(() => {
+    try {
+      const response = await fetch(`/api/organizations/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          description,
+          gradingSystem,
+          rules,
+          gradingRubric,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, "Failed to update organization"))
+      }
+
       router.push(`/dashboard/organizations/${id}`)
-    }, 500)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to update organization")
+      setIsSubmitting(false)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -133,6 +227,9 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
                 required
               />
             </div>
+
+            {/* Grading Table */}
+            <GradingTable value={gradingRubric} onChange={setGradingRubric} />
 
             {/* Manual Rule Input */}
             <div className="space-y-2">

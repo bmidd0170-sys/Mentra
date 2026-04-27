@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, use } from "react"
+import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,25 +9,76 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { mockOrganizations } from "@/lib/mock-data"
 import { ArrowLeft, Plus, X } from "lucide-react"
+
+interface OrganizationDetail {
+  id: string
+  name: string
+  rules: string[]
+}
 
 export default function NewAssignmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const organization = mockOrganizations.find((o) => o.id === id)
 
+  const [organization, setOrganization] = useState<OrganizationDetail | null>(null)
+  const [isLoadingOrg, setIsLoadingOrg] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [name, setName] = useState("")
   const [selectedRules, setSelectedRules] = useState<string[]>([])
   const [customRuleInput, setCustomRuleInput] = useState("")
   const [customRules, setCustomRules] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    const loadOrganization = async () => {
+      setIsLoadingOrg(true)
+      setLoadError(null)
+
+      try {
+        const response = await fetch(`/api/organizations/${id}`)
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to load organization")
+        }
+
+        const data = await response.json()
+        if (active) {
+          setOrganization(data.organization)
+        }
+      } catch (error) {
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load organization")
+          setOrganization(null)
+        }
+      } finally {
+        if (active) {
+          setIsLoadingOrg(false)
+        }
+      }
+    }
+
+    void loadOrganization()
+
+    return () => {
+      active = false
+    }
+  }, [id])
+
+  if (isLoadingOrg) {
+    return <div className="py-12 text-center text-muted-foreground">Loading organization...</div>
+  }
 
   if (!organization) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <h1 className="text-2xl font-bold text-foreground">Organization not found</h1>
-        <p className="mt-2 text-muted-foreground">The organization you&apos;re looking for doesn&apos;t exist.</p>
+        <p className="mt-2 text-muted-foreground">
+          {loadError || "The organization you&apos;re looking for doesn&apos;t exist."}
+        </p>
         <Link href="/dashboard" className="mt-4">
           <Button>Go to Dashboard</Button>
         </Link>
@@ -60,15 +111,37 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
     setCustomRules(customRules.filter((r) => r !== rule))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim() || (selectedRules.length === 0 && customRules.length === 0)) return
 
+    setSubmitError(null)
     setIsSubmitting(true)
-    // Mock submission - in real app this would create the assignment
-    setTimeout(() => {
+
+    try {
+      const response = await fetch(`/api/organizations/${id}/assignments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: name,
+          selectedRules,
+          customRules,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create assignment")
+      }
+
       router.push(`/dashboard/organizations/${id}`)
-    }, 500)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Failed to create assignment")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -218,6 +291,7 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
         )}
 
         {/* Actions */}
+        {submitError && <p className="text-sm text-destructive">{submitError}</p>}
         <div className="flex gap-3">
           <Link href={`/dashboard/organizations/${id}`} className="flex-1">
             <Button type="button" variant="outline" className="w-full">

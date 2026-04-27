@@ -1,6 +1,65 @@
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 
+function chunkText(text: string, chunkSize: number) {
+  const chunks: string[] = []
+
+  for (let index = 0; index < text.length; index += chunkSize) {
+    chunks.push(text.slice(index, index + chunkSize))
+  }
+
+  return chunks
+}
+
+function parseJsonFromModelOutput(raw: string) {
+  const trimmed = raw.trim()
+
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+    if (fencedMatch?.[1]) {
+      return JSON.parse(fencedMatch[1])
+    }
+
+    const arrayMatch = trimmed.match(/\[[\s\S]*\]/)
+    if (arrayMatch?.[0]) {
+      return JSON.parse(arrayMatch[0])
+    }
+
+    throw new SyntaxError("Model response did not contain valid JSON")
+  }
+}
+
+function normalizeRules(value: unknown) {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .filter((rule): rule is string => typeof rule === "string")
+    .map((rule) => rule.trim())
+    .filter(Boolean)
+}
+
+function getOpenAIErrorMessage(error: unknown) {
+  if (error instanceof OpenAI.APIError) {
+    if (error.status === 401) {
+      return "OpenAI authentication failed. Check OPENAI_API_KEY and restart the dev server."
+    }
+
+    if (error.status === 429) {
+      return "OpenAI rate limit reached. Please wait a moment and try again."
+    }
+
+    if (error.status && error.status >= 500) {
+      return "OpenAI is currently unavailable. Please retry shortly."
+    }
+
+    return error.message || "OpenAI request failed."
+  }
+
+  return "Failed to generate rules. Please try again."
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { organizationName, description } = await request.json()
@@ -23,10 +82,21 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     })
 
+    const descriptionText = typeof description === "string" ? description.trim() : ""
+    const descriptionSections =
+      descriptionText.length > 500
+        ? chunkText(descriptionText, 500).map(
+            (section, index) => `Section ${index + 1}: ${section}`
+          )
+        : [descriptionText]
+
     const prompt = `You are an expert curriculum designer. Based on the following organization description, generate 5-8 clear, measurable grading criteria/rules.
 
 Organization: ${organizationName}
-Description: ${description}
+Description:
+${descriptionSections.join("\n\n")}
+
+If the description is longer than 500 characters, analyze all sections together and preserve the important themes across the full description.
 
 Each rule should be:
 - Specific and measurable
@@ -40,6 +110,29 @@ Only return valid JSON, no additional text.`
 
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
+      temperature: 0.2,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "generated_rules",
+          schema: {
+            type: "object",
+            properties: {
+              rules: {
+                type: "array",
+                minItems: 5,
+                maxItems: 8,
+                items: {
+                  type: "string",
+                },
+              },
+            },
+            required: ["rules"],
+            additionalProperties: false,
+          },
+          strict: true,
+        },
+      },
       messages: [
         {
           role: "user",
@@ -48,12 +141,17 @@ Only return valid JSON, no additional text.`
       ],
     })
 
-    const content_text = response.choices[0].message.content || ""
+    const contentText = response.choices[0].message.content || ""
 
     // Parse the JSON response
-    const rules = JSON.parse(content_text)
+    const parsed = parseJsonFromModelOutput(contentText)
+    const rules = normalizeRules(
+      typeof parsed === "object" && parsed !== null && "rules" in parsed
+        ? (parsed as { rules: unknown }).rules
+        : parsed
+    )
 
-    if (!Array.isArray(rules)) {
+    if (rules.length === 0) {
       throw new Error("Expected array of rules from AI")
     }
 
@@ -68,9 +166,6 @@ Only return valid JSON, no additional text.`
       )
     }
 
-    return NextResponse.json(
-      { error: "Failed to generate rules. Please try again." },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: getOpenAIErrorMessage(error) }, { status: 500 })
   }
 }

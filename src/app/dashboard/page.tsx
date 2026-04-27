@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { mockOrganizations, mockAssignments, type Organization } from "@/lib/mock-data"
 import {
   Plus,
   MoreVertical,
@@ -35,12 +34,70 @@ import {
   ArrowRight,
 } from "lucide-react"
 
+interface Organization {
+  id: string
+  name: string
+  description?: string | null
+  gradingSystem?: string | null
+  rules: string[]
+  assignmentCount: number
+}
+
+interface AssignmentCard {
+  id: string
+  name: string
+  organizationName: string
+  status: "pending" | "reviewed" | "submitted"
+}
+
 export default function DashboardPage() {
   const router = useRouter()
-  const [organizations, setOrganizations] = useState(mockOrganizations)
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [pendingAssignments, setPendingAssignments] = useState<AssignmentCard[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [deleteOrg, setDeleteOrg] = useState<Organization | null>(null)
 
-  const pendingAssignments = mockAssignments.filter((a) => a.status === "pending")
+  useEffect(() => {
+    let active = true
+
+    const loadDashboard = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+
+      try {
+        const response = await fetch("/api/organizations?includeAssignments=true")
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to load dashboard data")
+        }
+
+        const data = await response.json()
+        const orgs = (data.organizations || []) as (Organization & { assignments?: AssignmentCard[] })[]
+
+        if (active) {
+          setOrganizations(orgs)
+          setPendingAssignments(
+            orgs.flatMap((org) => (org.assignments || []).filter((assignment) => assignment.status === "pending"))
+          )
+        }
+      } catch (error) {
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load dashboard data")
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadDashboard()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const handleDeleteOrg = (org: Organization) => {
     setOrganizations(organizations.filter((o) => o.id !== org.id))
@@ -84,6 +141,9 @@ export default function DashboardPage() {
           </Button>
         </Link>
       </div>
+
+      {isLoading && <p className="text-sm text-muted-foreground">Loading dashboard...</p>}
+      {loadError && <p className="text-sm text-destructive">{loadError}</p>}
 
       {/* Assignments Needing Review */}
       {pendingAssignments.length > 0 && (
