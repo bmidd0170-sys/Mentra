@@ -1,16 +1,18 @@
 services:
   web:
     build:
-      context: ./app
+      context: .
       dockerfile: Dockerfile
     container_name: mentra-app
     command: npm run dev
     ports:
       - "3000:3000"
     env_file:
-      - ./app/.env
+      - ./.env
+    environment:
+      DATABASE_URL: postgresql://mentra:mentra@db:5432/mentra?schema=public
     volumes:
-      - ./app:/app
+      - .:/app
       - /app/node_modules
     depends_on:
       - db
@@ -30,3 +32,4 @@ services:
 
 volumes:
   pgdata:
+  

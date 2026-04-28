@@ -9,9 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, X, Sparkles, Upload } from "lucide-react"
-import { GradingTable, type GradeEntry } from "@/components/GradingTable"
+
+type RuleDraft = {
+  title: string
+  description: string
+  weight: number
+}
 
 async function getErrorMessage(response: Response, fallback: string) {
   try {
@@ -36,9 +40,10 @@ export default function NewOrganizationPage() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [gradingSystem, setGradingSystem] = useState("")
-  const [gradingRubric, setGradingRubric] = useState<GradeEntry[]>([])
-  const [ruleInput, setRuleInput] = useState("")
-  const [rules, setRules] = useState<string[]>([])
+  const [ruleTitleInput, setRuleTitleInput] = useState("")
+  const [ruleDescriptionInput, setRuleDescriptionInput] = useState("")
+  const [ruleWeightInput, setRuleWeightInput] = useState("1")
+  const [rules, setRules] = useState<RuleDraft[]>([])
   const [useAI, setUseAI] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -47,20 +52,92 @@ export default function NewOrganizationPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const handleAddRule = () => {
-    if (ruleInput.trim()) {
-      // Split by comma or newline and add multiple rules
-      const newRules = ruleInput
-        .split(/[,\n]/)
-        .map((r) => r.trim())
-        .filter((r) => r && !rules.includes(r))
-      setRules([...rules, ...newRules])
-      setRuleInput("")
+  const parseWeight = (value: string) => {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 1
     }
+
+    return Math.round(parsed)
   }
 
-  const handleRemoveRule = (rule: string) => {
-    setRules(rules.filter((r) => r !== rule))
+  const handleAddRule = () => {
+    const title = ruleTitleInput.trim()
+    if (!title) return
+
+    const descriptionValue = ruleDescriptionInput.trim() || title
+    const weight = parseWeight(ruleWeightInput)
+    const titleKey = title.toLowerCase()
+
+    if (rules.some((rule) => rule.title.toLowerCase() === titleKey)) {
+      setSubmitError("That rule title already exists.")
+      return
+    }
+
+    setRules([...rules, { title, description: descriptionValue, weight }])
+    setRuleTitleInput("")
+    setRuleDescriptionInput("")
+    setRuleWeightInput("1")
+    setSubmitError(null)
+  }
+
+  const handleRemoveRule = (ruleTitle: string) => {
+    setRules(rules.filter((rule) => rule.title !== ruleTitle))
+  }
+
+  const handleRuleChange = (ruleTitle: string, field: "title" | "description" | "weight", value: string) => {
+    setRules((prevRules) => {
+      const currentRule = prevRules.find((rule) => rule.title === ruleTitle)
+      if (!currentRule) {
+        return prevRules
+      }
+
+      const nextRules = prevRules.map((rule) => {
+        if (rule.title !== ruleTitle) {
+          return rule
+        }
+
+        if (field === "weight") {
+          return {
+            ...rule,
+            weight: parseWeight(value),
+          }
+        }
+
+        const nextText = value.trim()
+        if (field === "title") {
+          return {
+            ...rule,
+            title: nextText,
+            description: rule.description || nextText,
+          }
+        }
+
+        return {
+          ...rule,
+          description: nextText,
+        }
+      })
+
+      const duplicateTitles = new Set<string>()
+      for (const rule of nextRules) {
+        const key = rule.title.trim().toLowerCase()
+        if (!key) {
+          setSubmitError("Rule title cannot be empty.")
+          return prevRules
+        }
+
+        if (duplicateTitles.has(key)) {
+          setSubmitError("Rule titles must be unique.")
+          return prevRules
+        }
+
+        duplicateTitles.add(key)
+      }
+
+      setSubmitError(null)
+      return nextRules
+    })
   }
 
   const handleGenerateAIRules = async () => {
@@ -88,8 +165,7 @@ export default function NewOrganizationPage() {
 
       const data = await response.json()
       // Add AI-generated rules to existing rules, avoiding duplicates
-      const newRules = data.rules.filter((r: string) => !rules.includes(r))
-      setRules([...rules, ...newRules])
+      mergeRules(data.rules)
       setUseAI(false)
     } catch (error) {
       console.error("Error generating rules:", error)
@@ -101,25 +177,46 @@ export default function NewOrganizationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !gradingSystem.trim() || rules.length === 0 || gradingRubric.length === 0) return
+    if (!name.trim() || !gradingSystem.trim() || (rules.length === 0 && !uploadedRulesFile)) return
 
     setSubmitError(null)
     setIsSubmitting(true)
 
     try {
-      const response = await fetch("/api/organizations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          gradingSystem,
-          rules,
-          gradingRubric,
-        }),
-      })
+      const payload = {
+        name,
+        description,
+        gradingSystem,
+        rules: rules.map((rule) => ({
+          title: rule.title,
+          description: rule.description,
+          weight: rule.weight,
+        })),
+      }
+
+      let response: Response
+
+      if (uploadedRulesFile) {
+        const formData = new FormData()
+        formData.append("name", name)
+        if (description.trim()) formData.append("description", description)
+        formData.append("gradingSystem", gradingSystem)
+        formData.append("rules", JSON.stringify(payload.rules))
+        formData.append("documentFile", uploadedRulesFile)
+
+        response = await fetch("/api/organizations", {
+          method: "POST",
+          body: formData,
+        })
+      } else {
+        response = await fetch("/api/organizations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        })
+      }
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -135,13 +232,6 @@ export default function NewOrganizationPage() {
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleAddRule()
-    }
-  }
-
   const mergeRules = (incomingRules: string[]) => {
     if (incomingRules.length === 0) {
       return
@@ -149,10 +239,18 @@ export default function NewOrganizationPage() {
 
     setRules((prevRules) => {
       const nextRules = [...prevRules]
+      const existingTitles = new Set(prevRules.map((rule) => rule.title.toLowerCase()))
 
       for (const rule of incomingRules) {
-        if (!nextRules.includes(rule)) {
-          nextRules.push(rule)
+        const normalizedTitle = rule.trim()
+        const key = normalizedTitle.toLowerCase()
+        if (normalizedTitle && !existingTitles.has(key)) {
+          nextRules.push({
+            title: normalizedTitle,
+            description: normalizedTitle,
+            weight: 1,
+          })
+          existingTitles.add(key)
         }
       }
 
@@ -184,7 +282,7 @@ export default function NewOrganizationPage() {
     setUploadedRulesFile(file)
     setSubmitError(null)
 
-    if (file.type === "text/plain") {
+    if (file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt")) {
       const text = await file.text()
       const parsedRules = text
         .split(/[\n,]/)
@@ -244,26 +342,7 @@ export default function NewOrganizationPage() {
   }
 
   return (
-    <>
-      <style>{`
-        #description::-webkit-scrollbar {
-          width: 8px;
-        }
-        
-        #description::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        
-        #description::-webkit-scrollbar-thumb {
-          background: #6b7280;
-          border-radius: 4px;
-        }
-        
-        #description::-webkit-scrollbar-thumb:hover {
-          background: #4b5563;
-        }
-      `}</style>
-      <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/dashboard">
@@ -302,11 +381,19 @@ export default function NewOrganizationPage() {
                 placeholder="Brief description of this organization..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="h-40 resize-none"
+                rows={3}
               />
               <p className="text-xs text-muted-foreground">
                 Descriptions over 500 characters are supported. AI rule generation will analyze the full text in chunks.
               </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="link">Organization Link (Optional)</Label>
+              <Input
+                id="link"
+                type="url"
+                placeholder="https://example.com/syllabus"
+              />
             </div>
           </CardContent>
         </Card>
@@ -329,9 +416,6 @@ export default function NewOrganizationPage() {
                 required
               />
             </div>
-
-            {/* Grading Table */}
-            <GradingTable value={gradingRubric} onChange={setGradingRubric} />
 
             {/* AI Toggle */}
             <div className="flex items-center justify-between rounded-lg border border-border p-4">
@@ -370,21 +454,39 @@ export default function NewOrganizationPage() {
 
             {/* Manual Rule Input */}
             <div className="space-y-2">
-              <Label htmlFor="rules">Add Rules Manually</Label>
-              <div className="flex gap-2">
-                <Textarea
-                  id="rules"
-                  placeholder="Enter rules (separate by comma or new line)"
-                  value={ruleInput}
-                  onChange={(e) => setRuleInput(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  rows={2}
-                  className="flex-1"
+              <Label htmlFor="ruleTitle">Add Rule</Label>
+              <div className="grid gap-2 md:grid-cols-12">
+                <Input
+                  id="ruleTitle"
+                  placeholder="Rule title"
+                  value={ruleTitleInput}
+                  onChange={(e) => setRuleTitleInput(e.target.value)}
+                  className="md:col-span-4"
                 />
-                <Button type="button" onClick={handleAddRule} variant="outline" className="shrink-0">
+                <Input
+                  id="ruleDescription"
+                  placeholder="Rule description"
+                  value={ruleDescriptionInput}
+                  onChange={(e) => setRuleDescriptionInput(e.target.value)}
+                  className="md:col-span-5"
+                />
+                <Input
+                  id="ruleWeight"
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Weight"
+                  value={ruleWeightInput}
+                  onChange={(e) => setRuleWeightInput(e.target.value)}
+                  className="md:col-span-2"
+                />
+                <Button type="button" onClick={handleAddRule} variant="outline" className="md:col-span-1">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Rule fields map directly to the schema: <span className="font-medium">title</span>, <span className="font-medium">description</span>, and <span className="font-medium">weight</span>.
+              </p>
             </div>
 
             {/* File Upload */}
@@ -412,9 +514,8 @@ export default function NewOrganizationPage() {
                 onDragOver={handleDragOver}
                 onDragEnter={handleDragOver}
                 onDragLeave={handleDragLeave}
-                className={`flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
-                  isDragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                }`}
+                className={`flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${isDragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                  }`}
               >
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <Upload className="h-8 w-8" />
@@ -429,34 +530,66 @@ export default function NewOrganizationPage() {
                   )}
                   {uploadedRulesFile?.type !== "text/plain" && uploadedRulesFile && (
                     <p className="text-xs text-muted-foreground">
-                      TXT files are auto-imported into rules. PDF and DOCX are accepted for attachment only.
+                        The uploaded document will be submitted with the organization so AI can organize the rules into categories.
                     </p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Rules List */}
+            {/* Rules Table */}
             {rules.length > 0 && (
               <div className="space-y-2">
-                <Label>Added Rules ({rules.length})</Label>
-                <div className="flex flex-wrap gap-2">
-                  {rules.map((rule, index) => (
-                    <Badge
-                      key={index}
-                      variant="secondary"
-                      className="flex items-center gap-1 py-1.5 pl-3 pr-1"
-                    >
-                      {rule}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveRule(rule)}
-                        className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
+                <Label>Rubric Builder ({rules.length} rules)</Label>
+                <div className="overflow-x-auto rounded-md border border-border">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-muted/40">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-foreground">Title</th>
+                        <th className="px-3 py-2 text-left font-medium text-foreground">Description</th>
+                        <th className="px-3 py-2 text-left font-medium text-foreground">Weight</th>
+                        <th className="px-3 py-2 text-right font-medium text-foreground">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rules.map((rule) => (
+                        <tr key={rule.title} className="border-t border-border align-top">
+                          <td className="px-3 py-2">
+                            <Input
+                              value={rule.title}
+                              onChange={(e) => handleRuleChange(rule.title, "title", e.target.value)}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input
+                              value={rule.description}
+                              onChange={(e) => handleRuleChange(rule.title, "description", e.target.value)}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input
+                              type="number"
+                              min={1}
+                              step={1}
+                              value={rule.weight}
+                              onChange={(e) => handleRuleChange(rule.title, "weight", e.target.value)}
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveRule(rule.title)}
+                              aria-label={`Remove ${rule.title}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
@@ -474,13 +607,12 @@ export default function NewOrganizationPage() {
           <Button
             type="submit"
             className="flex-1"
-            disabled={!name.trim() || !gradingSystem.trim() || rules.length === 0 || gradingRubric.length === 0 || isSubmitting}
+            disabled={!name.trim() || !gradingSystem.trim() || (rules.length === 0 && !uploadedRulesFile) || isSubmitting}
           >
             {isSubmitting ? "Creating..." : "Create Organization"}
           </Button>
         </div>
       </form>
-      </div>
-    </>
+    </div>
   )
 }

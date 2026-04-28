@@ -19,9 +19,9 @@ This file is a standalone wireframe reference extracted from Week 1 planning.
 +--------------------------------------------------------------+
 | [Organizations] [Assignments] [Avg AI Score]                 |
 |                                                              |
-| Recent Activity                                              |
-| - ...                                                        |
-| - ...                                                        |
+| Recent Activity                                               |
+| - ...                                                         |
+| - ...                                                         |
 |                                                              |
 | [New Organization] [New Assignment] [New Submission]         |
 +--------------------------------------------------------------+
@@ -47,9 +47,9 @@ This file is a standalone wireframe reference extracted from Week 1 planning.
 | Rule | Description | Weight | Actions   | [Import Rules]      |
 | ...                                    | Add Rule Form        |
 | ...                                    | [Rule Input]         |
-|                                         | [Description Input] |
-|                                         | [Weight Input]      |
-|                                         | [Add Rule]          |
+|                                         | [Description Input]  |
+|                                         | [Weight Input]       |
+|                                         | [Add Rule]           |
 +----------------------------------------+---------------------+
 ```
 
@@ -75,7 +75,7 @@ This file is a standalone wireframe reference extracted from Week 1 planning.
 | [ ] Rule A                                                    |
 | [ ] Rule B                                                    |
 | [ ] Rule C                                                    |
-|                                                               |
+|                                                              |
 | [Save Draft Assignment]                                       |
 +--------------------------------------------------------------+
 ```
@@ -125,7 +125,7 @@ This file is a standalone wireframe reference extracted from Week 1 planning.
 +--------------------------------------------------------------+
 | Progress History                                              |
 +--------------------------------------------------------------+
-| Filters: [Organization ▼] [Assignment ▼] [Date Range ▼]       |
+| Filters: [Organization ▼] [Assignment ▼] [Date Range ▼]      |
 +--------------------------------------------------------------+
 | Timeline                                                      |
 | - Submission 1                                                |
@@ -133,6 +133,6 @@ This file is a standalone wireframe reference extracted from Week 1 planning.
 | - Submission 3                                                |
 +--------------------------------------------------------------+
 | Score Trend (Chart Placeholder)                               |
-| [---------------------- line chart -------------------------] |
+| [---------------------- line chart -------------------------]  |
 +--------------------------------------------------------------+
 ```

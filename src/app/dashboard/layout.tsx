@@ -54,7 +54,7 @@ export default function DashboardLayout({
   }, [loading, router, user])
 
   const unreadCount = notifications.filter((n) => !n.read).length
-  const userName = user?.displayName || user?.email?.split("@")[0] || "Mentra user"
+  const userName = user?.displayName || user?.email?.split("@")[0] || "FeedForward user"
   const userEmail = user?.email || "Connected with Firebase"
   const initials = userName
     .split(" ")
@@ -101,7 +101,7 @@ export default function DashboardLayout({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
               <Zap className="h-5 w-5 text-sidebar-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold text-sidebar-foreground">Mentra</span>
+            <span className="text-lg font-semibold text-sidebar-foreground">FeedForward</span>
           </div>
 
           {/* Navigation */}
@@ -147,7 +147,7 @@ export default function DashboardLayout({
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Zap className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-semibold text-foreground">Mentra</span>
+          <span className="text-lg font-semibold text-foreground">FeedForward</span>
         </Link>
         <div className="flex items-center gap-2">
           {/* Notifications */}

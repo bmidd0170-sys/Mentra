@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
     const descriptionSections =
       descriptionText.length > 500
         ? chunkText(descriptionText, 500).map(
-            (section, index) => `Section ${index + 1}: ${section}`
-          )
+          (section, index) => `Section ${index + 1}: ${section}`
+        )
         : [descriptionText]
 
     const prompt = `You are an expert curriculum designer. Based on the following organization description, generate 5-8 clear, measurable grading criteria/rules.

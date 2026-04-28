@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mentra",
-  description: "AI-powered assignment feedback platform",
+  title: "FeedForward",
+  description: "AI-powered rubric grading and feedback platform",
 };
 
 export default function RootLayout({

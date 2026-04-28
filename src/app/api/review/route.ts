@@ -13,7 +13,7 @@ async function extractDocumentText(file: File): Promise<string> {
 
   if (
     file.type ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     file.name.toLowerCase().endsWith(".docx")
   ) {
     try {
@@ -72,14 +72,14 @@ function normalizeReviewPayload(value: unknown): ReviewPayload | null {
     typeof candidate.score === "number"
       ? candidate.score
       : typeof candidate.score === "string"
-      ? Number(candidate.score)
-      : NaN
+        ? Number(candidate.score)
+        : NaN
 
   const feedback = Array.isArray(candidate.feedback)
     ? candidate.feedback
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter(Boolean)
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean)
     : []
 
   if (!grade || Number.isNaN(numericScore) || feedback.length === 0) {
@@ -119,16 +119,14 @@ export async function POST(request: NextRequest) {
     let content: string = ""
     let screenshotDataUrl: string | undefined
     let rules: string[] = []
-    let gradingRubric: unknown[] = []
     let assignmentName: string = ""
     let organizationName: string = ""
 
     if (contentType?.includes("application/json")) {
-      const { content: jsonContent, screenshotDataUrl: jsonScreenshot, rules: jsonRules, gradingRubric: jsonGradingRubric, assignmentName: jsonAssignmentName, organizationName: jsonOrganizationName } = await request.json()
+      const { content: jsonContent, screenshotDataUrl: jsonScreenshot, rules: jsonRules, assignmentName: jsonAssignmentName, organizationName: jsonOrganizationName } = await request.json()
       content = jsonContent
       screenshotDataUrl = jsonScreenshot
       rules = jsonRules
-      gradingRubric = jsonGradingRubric
       assignmentName = jsonAssignmentName
       organizationName = jsonOrganizationName
     } else if (contentType?.includes("multipart/form-data")) {
@@ -138,7 +136,6 @@ export async function POST(request: NextRequest) {
       const fileField = formData.get("file")
       const screenshotField = formData.get("screenshot")
       const rulesField = formData.get("rules")
-      const gradingRubricField = formData.get("gradingRubric")
       const assignmentNameField = formData.get("assignmentName")
       const organizationNameField = formData.get("organizationName")
 
@@ -166,14 +163,6 @@ export async function POST(request: NextRequest) {
           rules = JSON.parse(rulesField)
         } catch {
           rules = []
-        }
-      }
-
-      if (gradingRubricField && typeof gradingRubricField === "string") {
-        try {
-          gradingRubric = JSON.parse(gradingRubricField)
-        } catch {
-          gradingRubric = []
         }
       }
 

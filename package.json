@@ -1,11 +1,11 @@
 {
-  "name": "web",
+  "name": "app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node ./scripts/run-next-env-only.mjs dev",
+    "build": "node ./scripts/run-next-env-only.mjs build",
+    "start": "node ./scripts/run-next-env-only.mjs start",
     "lint": "eslint"
   },
   "dependencies": {

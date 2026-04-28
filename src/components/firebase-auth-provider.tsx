@@ -44,22 +44,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
 
     const initializeAuth = async () => {
-      const auth = getFirebaseAuth()
-
       try {
+        const auth = getFirebaseAuth()
+
         await setPersistence(auth, browserLocalPersistence)
-      } catch {
-        // Keep going even if persistence cannot be set in the current browser context.
-      }
+        if (cancelled) {
+          return
+        }
 
-      if (cancelled) {
-        return
-      }
+        unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+          setUser(nextUser)
+          setLoading(false)
+        })
+      } catch (error) {
+        // Keep auth UI responsive even when Firebase config is invalid or persistence fails.
+        console.error("Auth initialization failed:", error)
 
-      unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-        setUser(nextUser)
-        setLoading(false)
-      })
+        if (!cancelled) {
+          setUser(null)
+          setLoading(false)
+        }
+      }
     }
 
     void initializeAuth()

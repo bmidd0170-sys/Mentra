@@ -13,7 +13,7 @@ export default function LandingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Zap className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-semibold text-foreground">Mentra</span>
+            <span className="text-xl font-semibold text-foreground">FeedForward</span>
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/login">
@@ -43,7 +43,7 @@ export default function LandingPage() {
               Get instant feedback before your work is graded
             </h1>
             <p className="mb-10 text-pretty text-lg text-muted-foreground lg:text-xl">
-              Stop waiting days for feedback. Mentra gives you AI-powered insights on your assignments instantly, helping you improve before final submission.
+              Stop waiting days for feedback. FeedForward gives you AI-powered insights on your assignments instantly, helping you improve before final submission.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link href="/login">
@@ -70,8 +70,8 @@ export default function LandingPage() {
       <section className="border-y border-border bg-card px-6 py-16">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="mb-4 text-2xl font-semibold text-foreground">The Problem with Traditional Grading</h2>
-          <p className="text-lg text-muted-foreground">
-            Students submit assignments and wait days or weeks for feedback. By then, it&apos;s too late to learn from mistakes before the next assignment. Mentra bridges this gap with instant, actionable insights.
+            <p className="text-lg text-muted-foreground">
+            Students submit assignments and wait days or weeks for feedback. By then, it&apos;s too late to learn from mistakes before the next assignment. FeedForward bridges this gap with instant, actionable insights.
           </p>
         </div>
       </section>
@@ -125,7 +125,7 @@ export default function LandingPage() {
       <section className="border-y border-border bg-card px-6 py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold text-foreground">Why Choose Mentra</h2>
+            <h2 className="mb-4 text-3xl font-bold text-foreground">Why Choose FeedForward</h2>
             <p className="text-lg text-muted-foreground">Built for students who want to improve</p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -177,7 +177,7 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="mb-6 text-card-foreground">
-                  &quot;Mentra helped me understand exactly what my professor was looking for. My grades improved by a full letter within one semester.&quot;
+                  &quot;FeedForward helped me understand exactly what my professor was looking for. My grades improved by a full letter within one semester.&quot;
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
@@ -260,7 +260,7 @@ export default function LandingPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <Zap className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-lg font-semibold text-foreground">Mentra</span>
+              <span className="text-lg font-semibold text-foreground">FeedForward</span>
             </div>
             <div className="flex gap-6 text-sm text-muted-foreground">
               <Link href="#" className="hover:text-foreground transition-colors">Terms of Service</Link>
@@ -268,7 +268,7 @@ export default function LandingPage() {
               <Link href="#" className="hover:text-foreground transition-colors">Contact</Link>
             </div>
             <p className="text-sm text-muted-foreground">
-              &copy; 2026 Mentra. All rights reserved.
+              &copy; 2026 FeedForward. All rights reserved.
             </p>
           </div>
         </div>

@@ -10,14 +10,12 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, X } from "lucide-react"
-import { GradingTable, type GradeEntry } from "@/components/GradingTable"
 
 type OrganizationEditData = {
   id: string
   name: string
   description?: string | null
   gradingSystem?: string | null
-  gradingRubric?: GradeEntry[]
   rules: string[]
 }
 
@@ -42,7 +40,6 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [gradingSystem, setGradingSystem] = useState("")
-  const [gradingRubric, setGradingRubric] = useState<GradeEntry[]>([])
   const [ruleInput, setRuleInput] = useState("")
   const [rules, setRules] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -71,7 +68,6 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
           setName(loadedOrganization.name || "")
           setDescription(loadedOrganization.description || "")
           setGradingSystem(loadedOrganization.gradingSystem || "")
-          setGradingRubric(loadedOrganization.gradingRubric || [])
           setRules(loadedOrganization.rules || [])
         }
       } catch (error) {
@@ -127,7 +123,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !gradingSystem.trim() || rules.length === 0 || gradingRubric.length === 0) return
+    if (!name.trim() || !gradingSystem.trim() || rules.length === 0) return
 
     setIsSubmitting(true)
     try {
@@ -141,7 +137,6 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
           description,
           gradingSystem,
           rules,
-          gradingRubric,
         }),
       })
 
@@ -227,9 +222,6 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
                 required
               />
             </div>
-
-            {/* Grading Table */}
-            <GradingTable value={gradingRubric} onChange={setGradingRubric} />
 
             {/* Manual Rule Input */}
             <div className="space-y-2">

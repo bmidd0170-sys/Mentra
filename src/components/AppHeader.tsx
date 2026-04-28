@@ -23,7 +23,7 @@ export default function AppHeader() {
     <header className="sticky top-0 z-20 border-b border-black/10 bg-white/75 backdrop-blur-md">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="text-lg font-black tracking-tight text-slate-900">
-          Mentra
+          FeedForward
         </Link>
 
         {inPublicFlow ? (

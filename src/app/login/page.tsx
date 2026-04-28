@@ -166,7 +166,7 @@ export default function LoginPage() {
   const title = isSignUpMode ? "Create your account" : "Welcome back"
   const description = isSignUpMode
     ? "Start creating polished assignments in minutes"
-    : "Sign in to your Mentra account"
+    : "Sign in to your FeedForward account"
   const highlights = isSignUpMode
     ? [
         { icon: Sparkles, text: "Generate tailored assignments with AI" },
@@ -193,7 +193,7 @@ export default function LoginPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Zap className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-semibold text-foreground">Mentra</span>
+            <span className="text-xl font-semibold text-foreground">FeedForward</span>
           </Link>
           <Link href="/">
             <Button variant="ghost" size="sm">
@@ -209,7 +209,7 @@ export default function LoginPage() {
         <section className="hidden rounded-3xl border border-border/60 bg-card/60 p-8 shadow-sm backdrop-blur sm:block">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5" />
-            {isSignUpMode ? "New to Mentra" : "Welcome back"}
+            {isSignUpMode ? "New to FeedForward" : "Welcome back"}
           </p>
           <h1 className="text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
             {isSignUpMode ? "Build classroom-ready work faster." : "Pick up exactly where you left off."}
