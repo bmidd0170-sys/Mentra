@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
+export const dynamic = "force-dynamic"
+
 export default async function OrganizationsPage() {
   const organizations = await prisma.organization.findMany({
     orderBy: { createdAt: "desc" },
