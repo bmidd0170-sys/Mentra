@@ -23,6 +23,24 @@ Traditional grading is often delayed and final. Mentra turns grading into a cont
 - Profile and settings pages
 - Shared app header/navigation across authenticated screens
 
+## Data Isolation & Account Security
+
+Each authenticated user has completely isolated data:
+
+- **Organizations**: Each organization is linked to the user who created it (`createdByUserId`). Users can only view and manage their own organizations.
+- **Assignments**: Assignments are scoped to their organization, ensuring multi-user security.
+- **API Authentication**: All API routes require Firebase ID token authentication. Requests without valid tokens return empty data or 401 Unauthorized errors.
+- **Permission Checks**: Sensitive operations (create, update, delete) verify that the authenticated user owns the resource before allowing modifications.
+
+### How It Works
+
+1. Client sends Firebase ID token in `Authorization: Bearer <idToken>` header
+2. Server extracts and validates the token to get the user's UID
+3. All database queries filter by `createdByUserId`
+4. Cross-user access attempts return 403 Forbidden
+
+This ensures two separate accounts never share or interfere with each other's data.
+
 ## Tech Stack
 
 - Next.js 16 (App Router)

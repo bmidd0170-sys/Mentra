@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+import { useAuth } from "@/components/firebase-auth-provider"
+import { fetchWithAuth } from "@/lib/api-client"
 import {
   ArrowLeft,
   Upload,
@@ -111,8 +113,7 @@ function scoreToLetterGrade(score: number) {
 }
 
 export default function AssignmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const [assignment, setAssignment] = useState<AssignmentView | null>(null)
+  const { id } = use(params)  const { user } = useAuth()  const [assignment, setAssignment] = useState<AssignmentView | null>(null)
   const [isLoadingAssignment, setIsLoadingAssignment] = useState(true)
 
   const [textContent, setTextContent] = useState("")
@@ -136,7 +137,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       setError(null)
 
       try {
-        const response = await fetch(`/api/assignment/${id}`)
+        const response = await fetchWithAuth(user, `/api/assignment/${id}`)
         if (!response.ok) {
           throw new Error(await getErrorMessage(response, "Failed to load assignment"))
         }
@@ -212,7 +213,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     return () => {
       active = false
     }
-  }, [id])
+  }, [id, user])
 
   if (isLoadingAssignment) {
     return <div className="py-12 text-center text-muted-foreground">Loading assignment...</div>
@@ -345,7 +346,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
         formData.append("gradingSystem", assignment.gradingSystem)
       }
 
-      const response = await fetch("/api/review", {
+      const response = await fetchWithAuth(user, "/api/review", {
         method: "POST",
         body: formData,
       })

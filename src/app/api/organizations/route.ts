@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { generateRubricFromRules } from "@/lib/grading"
 import { validateRubric } from "@/lib/rubric"
 import { extractDocumentText, extractRulesFromDocument } from "@/lib/document-rules"
+import { getUserIdFromRequest } from "@/lib/server-auth"
 
 type NormalizedRule = {
   title: string
@@ -75,10 +76,18 @@ function isDatabaseUnavailableError(error: unknown): boolean {
 
 export async function GET(request: NextRequest) {
   try {
+    const userId = await getUserIdFromRequest(request)
+    
+    // Return empty list if user is not authenticated
+    if (!userId) {
+      return NextResponse.json({ organizations: [] })
+    }
+
     const includeAssignments = request.nextUrl.searchParams.get("includeAssignments") === "true"
 
     if (includeAssignments) {
       const organizations = await prisma.organization.findMany({
+        where: { createdByUserId: userId },
         include: {
           rules: true,
           assignments: {
@@ -135,6 +144,7 @@ export async function GET(request: NextRequest) {
     }
 
     const organizations = await prisma.organization.findMany({
+      where: { createdByUserId: userId },
       include: {
         rules: true,
         _count: {
@@ -177,6 +187,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserIdFromRequest(request)
+    
+    // Require authentication for creating organizations
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Please log in to create organizations" },
+        { status: 401 }
+      )
+    }
+
     const contentType = request.headers.get("content-type") || ""
     let name = ""
     let description: string | null = null
@@ -250,6 +270,7 @@ export async function POST(request: NextRequest) {
         name,
         description,
         gradingSystem,
+        createdByUserId: userId,
         criteria: {
           create: criteria.map((criterion) => ({
             name: criterion.name,

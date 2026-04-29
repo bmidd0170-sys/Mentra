@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { generateRubricFromRules } from "@/lib/grading"
 import { validateRubric } from "@/lib/rubric"
+import { getUserIdFromRequest } from "@/lib/server-auth"
 
 type CriterionInput = {
   name: string
@@ -55,6 +56,16 @@ function normalizeRules(value: unknown) {
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserIdFromRequest(request)
+    
+    // Require authentication for creating organizations
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Please log in to create organizations" },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
 
     const name = typeof body.name === "string" ? body.name.trim() : ""
@@ -83,6 +94,7 @@ export async function POST(request: NextRequest) {
         name,
         description,
         gradingSystem: body.gradingSystem?.trim?.() || null,
+        createdByUserId: userId,
         criteria: {
           create: criteria.map((criterion) => ({
             name: criterion.name,

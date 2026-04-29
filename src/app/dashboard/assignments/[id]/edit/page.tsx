@@ -3,6 +3,8 @@
 import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/firebase-auth-provider"
+import { fetchWithAuth } from "@/lib/api-client"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,6 +41,7 @@ type AssignmentDetails = {
 export default function EditAssignmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { user } = useAuth()
 
   const [assignment, setAssignment] = useState<AssignmentDetails | null>(null)
   const [title, setTitle] = useState("")
@@ -55,7 +58,7 @@ export default function EditAssignmentPage({ params }: { params: Promise<{ id: s
       setError(null)
 
       try {
-        const response = await fetch(`/api/assignment/${id}`)
+        const response = await fetchWithAuth(user, `/api/assignment/${id}`)
         if (!response.ok) {
           throw new Error(await getErrorMessage(response, "Failed to load assignment"))
         }
@@ -84,7 +87,7 @@ export default function EditAssignmentPage({ params }: { params: Promise<{ id: s
     return () => {
       active = false
     }
-  }, [id])
+  }, [id, user])
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -94,7 +97,7 @@ export default function EditAssignmentPage({ params }: { params: Promise<{ id: s
     setError(null)
 
     try {
-      const response = await fetch(`/api/assignment/${id}`, {
+      const response = await fetchWithAuth(user, `/api/assignment/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

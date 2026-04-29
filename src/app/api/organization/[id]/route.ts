@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getUserIdFromRequest } from "@/lib/server-auth"
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getUserIdFromRequest(request)
+    
+    // Require authentication
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Please log in to view organizations" },
+        { status: 401 }
+      )
+    }
+
     const { id } = await params
 
     const organization = await prisma.organization.findUnique({
@@ -33,6 +44,11 @@ export async function GET(
 
     if (!organization) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+    }
+
+    // Verify the user owns this organization
+    if (organization.createdByUserId !== userId) {
+      return NextResponse.json({ error: "Unauthorized: You do not own this organization" }, { status: 403 })
     }
 
     return NextResponse.json({

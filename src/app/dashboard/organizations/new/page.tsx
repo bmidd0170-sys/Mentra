@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { useAuth } from "@/components/firebase-auth-provider"
+import { fetchWithAuth } from "@/lib/api-client"
 import { ArrowLeft, Plus, X, Sparkles, Upload } from "lucide-react"
 
 type RuleDraft = {
@@ -32,11 +34,12 @@ async function getErrorMessage(response: Response, fallback: string) {
 }
 
 export default function NewOrganizationPage() {
+  const router = useRouter()
+  const { user } = useAuth()
   const RULE_FILE_INPUT_ID = "organization-rules-file-upload"
   const MAX_RULE_FILE_BYTES = 10 * 1024 * 1024
   const ALLOWED_RULE_EXTENSIONS = ["txt", "pdf", "docx"]
 
-  const router = useRouter()
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [gradingSystem, setGradingSystem] = useState("")
@@ -148,7 +151,7 @@ export default function NewOrganizationPage() {
 
     setIsGenerating(true)
     try {
-      const response = await fetch("/api/generate-rules", {
+      const response = await fetchWithAuth(user, "/api/generate-rules", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -204,12 +207,12 @@ export default function NewOrganizationPage() {
         formData.append("rules", JSON.stringify(payload.rules))
         formData.append("documentFile", uploadedRulesFile)
 
-        response = await fetch("/api/organizations", {
+        response = await fetchWithAuth(user, "/api/organizations", {
           method: "POST",
           body: formData,
         })
       } else {
-        response = await fetch("/api/organizations", {
+        response = await fetchWithAuth(user, "/api/organizations", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

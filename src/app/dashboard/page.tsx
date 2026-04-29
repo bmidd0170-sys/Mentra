@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/components/firebase-auth-provider"
+import { fetchWithAuth } from "@/lib/api-client"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +55,7 @@ interface AssignmentCard {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [pendingAssignments, setPendingAssignments] = useState<AssignmentCard[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -68,7 +71,7 @@ export default function DashboardPage() {
       setLoadError(null)
 
       try {
-        const response = await fetch("/api/organizations?includeAssignments=true")
+        const response = await fetchWithAuth(user, "/api/organizations?includeAssignments=true")
         if (!response.ok) {
           const errorData = await response.json()
           throw new Error(errorData.error || "Failed to load dashboard data")
@@ -99,13 +102,13 @@ export default function DashboardPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [user])
 
   const handleDeleteOrg = async (org: Organization) => {
     setDeleteError(null)
 
     try {
-      const response = await fetch(`/api/organizations/${org.id}`, {
+      const response = await fetchWithAuth(user, `/api/organizations/${org.id}`, {
         method: "DELETE",
       })
 

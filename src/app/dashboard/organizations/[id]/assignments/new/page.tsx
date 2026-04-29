@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/components/firebase-auth-provider"
+import { fetchWithAuth } from "@/lib/api-client"
 import { ArrowLeft, Plus, X } from "lucide-react"
 
 interface OrganizationDetail {
@@ -21,6 +23,7 @@ interface OrganizationDetail {
 export default function NewAssignmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { user } = useAuth()
 
   const [organization, setOrganization] = useState<OrganizationDetail | null>(null)
   const [isLoadingOrg, setIsLoadingOrg] = useState(true)
@@ -41,7 +44,7 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
       setLoadError(null)
 
       try {
-        const response = await fetch(`/api/organizations/${id}`)
+        const response = await fetchWithAuth(user, `/api/organizations/${id}`)
         if (!response.ok) {
           const errorData = await response.json()
           throw new Error(errorData.error || "Failed to load organization")
@@ -68,7 +71,7 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
     return () => {
       active = false
     }
-  }, [id])
+  }, [id, user])
 
   if (isLoadingOrg) {
     return <div className="py-12 text-center text-muted-foreground">Loading organization...</div>
@@ -121,7 +124,7 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
     setIsSubmitting(true)
 
     try {
-      const response = await fetch(`/api/organizations/${id}/assignments`, {
+      const response = await fetchWithAuth(user, `/api/organizations/${id}/assignments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

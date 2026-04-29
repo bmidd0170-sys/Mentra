@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getUserIdFromRequest } from "@/lib/server-auth"
 
 function normalizeRules(rules: unknown): string[] {
   if (!Array.isArray(rules)) return []
@@ -19,6 +20,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getUserIdFromRequest(request)
+    
+    // Require authentication
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Please log in to create assignments" },
+        { status: 401 }
+      )
+    }
+
     const { id: organizationId } = await params
     const body = await request.json()
 
@@ -42,6 +53,11 @@ export async function POST(
 
     if (!organization) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+    }
+
+    // Verify the user owns this organization
+    if (organization.createdByUserId !== userId) {
+      return NextResponse.json({ error: "Unauthorized: You do not own this organization" }, { status: 403 })
     }
 
     const ruleIds: string[] = []

@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/components/firebase-auth-provider"
+import { fetchWithAuth } from "@/lib/api-client"
 import { ArrowLeft, Plus, X } from "lucide-react"
 
 type OrganizationEditData = {
@@ -36,6 +38,7 @@ async function getErrorMessage(response: Response, fallback: string) {
 export default function EditOrganizationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { user } = useAuth()
   const [organization, setOrganization] = useState<OrganizationEditData | null>(null)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
@@ -54,7 +57,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
       setLoadError(null)
 
       try {
-        const response = await fetch(`/api/organizations/${id}`)
+        const response = await fetchWithAuth(user, `/api/organizations/${id}`)
 
         if (!response.ok) {
           throw new Error(await getErrorMessage(response, "Failed to load organization"))
@@ -86,7 +89,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
     return () => {
       active = false
     }
-  }, [id])
+  }, [id, user])
 
   if (isLoading) {
     return <div className="py-12 text-center text-muted-foreground">Loading organization...</div>
@@ -127,7 +130,7 @@ export default function EditOrganizationPage({ params }: { params: Promise<{ id:
 
     setIsSubmitting(true)
     try {
-      const response = await fetch(`/api/organizations/${id}`, {
+      const response = await fetchWithAuth(user, `/api/organizations/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
