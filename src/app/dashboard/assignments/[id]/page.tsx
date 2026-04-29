@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, use } from "react"
+import { useEffect, useState, useRef, use } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { mockAssignments } from "@/lib/mock-data"
 import {
   ArrowLeft,
   Upload,
@@ -55,9 +54,66 @@ function fileToDataUrl(file: File) {
   })
 }
 
+type AssignmentStatus = "pending" | "reviewed" | "submitted"
+
+type AssignmentView = {
+  id: string
+  name: string
+  organizationId: string
+  organizationName: string
+  gradingSystem?: string | null
+  rules: string[]
+  hasAssignmentRules: boolean
+  status: AssignmentStatus
+  grade?: string
+  feedback?: string[]
+  instructions?: string | null
+}
+
+type AssignmentApiResponse = {
+  assignment: {
+    id: string
+    title: string
+    instructions?: string | null
+    rules?: string[]
+    organizationRules?: string[]
+    organization: {
+      id: string
+      name: string
+      gradingSystem?: string | null
+    }
+    criteria?: Array<{
+      name: string
+    }>
+    submissions?: Array<{
+      status: string
+      aiScore: number | null
+      results?: Array<{
+        reasoning: string
+      }>
+    }>
+  }
+}
+
+function scoreToLetterGrade(score: number) {
+  if (score >= 97) return "A+"
+  if (score >= 93) return "A"
+  if (score >= 90) return "A-"
+  if (score >= 87) return "B+"
+  if (score >= 83) return "B"
+  if (score >= 80) return "B-"
+  if (score >= 77) return "C+"
+  if (score >= 73) return "C"
+  if (score >= 70) return "C-"
+  if (score >= 67) return "D+"
+  if (score >= 60) return "D"
+  return "F"
+}
+
 export default function AssignmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const assignment = mockAssignments.find((a) => a.id === id)
+  const [assignment, setAssignment] = useState<AssignmentView | null>(null)
+  const [isLoadingAssignment, setIsLoadingAssignment] = useState(true)
 
   const [textContent, setTextContent] = useState("")
   const [linkContent, setLinkContent] = useState("")
@@ -65,11 +121,102 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
   const [screenshotDataUrl, setScreenshotDataUrl] = useState<string | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showFeedback, setShowFeedback] = useState(assignment?.status === "reviewed")
+  const [showFeedback, setShowFeedback] = useState(false)
   const [aiGrade, setAiGrade] = useState<string | null>(null)
   const [aiScore, setAiScore] = useState<number | null>(null)
   const [aiFeedback, setAiFeedback] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    const loadAssignment = async () => {
+      setIsLoadingAssignment(true)
+      setError(null)
+
+      try {
+        const response = await fetch(`/api/assignment/${id}`)
+        if (!response.ok) {
+          throw new Error(await getErrorMessage(response, "Failed to load assignment"))
+        }
+
+        const data = (await response.json()) as AssignmentApiResponse
+        const payload = data.assignment
+        const latestSubmission = payload.submissions?.[0]
+
+        const rules =
+          Array.isArray(payload.rules) && payload.rules.length > 0
+            ? payload.rules
+            : Array.isArray(payload.organizationRules) && payload.organizationRules.length > 0
+              ? payload.organizationRules
+              : (payload.criteria || []).map((criterion) => criterion.name)
+
+        const historicalFeedback =
+          latestSubmission?.results
+            ?.map((result) => result.reasoning.trim())
+            .filter(Boolean) || []
+
+        const historicalScore = latestSubmission?.aiScore ?? null
+        const historicalGrade = historicalScore !== null ? scoreToLetterGrade(historicalScore) : undefined
+
+        const status: AssignmentStatus = latestSubmission
+          ? (latestSubmission.results?.length || historicalScore !== null)
+            ? "reviewed"
+            : latestSubmission.status === "submitted"
+              ? "submitted"
+              : "pending"
+          : "pending"
+
+        if (!active) return
+
+        setAssignment({
+          id: payload.id,
+          name: payload.title,
+          organizationId: payload.organization.id,
+          organizationName: payload.organization.name,
+          gradingSystem: payload.organization.gradingSystem,
+          instructions: payload.instructions,
+          rules,
+          hasAssignmentRules: Array.isArray(payload.rules) && payload.rules.length > 0,
+          status,
+          grade: historicalGrade,
+          feedback: historicalFeedback,
+        })
+
+        if (historicalFeedback.length > 0) {
+          setAiFeedback(historicalFeedback)
+        }
+        if (historicalScore !== null) {
+          setAiScore(historicalScore)
+        }
+        if (historicalGrade) {
+          setAiGrade(historicalGrade)
+        }
+
+        setShowFeedback(historicalFeedback.length > 0 || status === "reviewed")
+      } catch (loadError) {
+        if (active) {
+          setAssignment(null)
+          setError(loadError instanceof Error ? loadError.message : "Failed to load assignment")
+        }
+      } finally {
+        if (active) {
+          setIsLoadingAssignment(false)
+        }
+      }
+    }
+
+    void loadAssignment()
+
+    return () => {
+      active = false
+    }
+  }, [id])
+
+  if (isLoadingAssignment) {
+    return <div className="py-12 text-center text-muted-foreground">Loading assignment...</div>
+  }
 
   if (!assignment) {
     return (
@@ -118,6 +265,17 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     const file = e.target.files?.[0]
     if (!file) return
     void validateAndSetFile(file)
+  }
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleDropzoneKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      openFilePicker()
+    }
   }
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -183,6 +341,9 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
       formData.append("rules", JSON.stringify(assignment.rules))
       formData.append("assignmentName", assignment.name)
       formData.append("organizationName", assignment.organizationName)
+      if (assignment.gradingSystem) {
+        formData.append("gradingSystem", assignment.gradingSystem)
+      }
 
       const response = await fetch("/api/review", {
         method: "POST",
@@ -217,9 +378,9 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
-  // Use AI-generated data if available, otherwise fall back to mock
-  const mockGrade = aiGrade || assignment.grade || "B+"
-  const mockScore = aiScore || (assignment.grade === "A-" ? 92 : assignment.grade === "B+" ? 87 : 85)
+  // Use AI-generated data if available, otherwise fall back to historical review
+  const mockGrade = aiGrade ?? assignment.grade ?? "B+"
+  const mockScore = aiScore ?? (assignment.grade === "A-" ? 92 : assignment.grade === "B+" ? 87 : 85)
   const mockFeedback = aiFeedback.length > 0 ? aiFeedback : (assignment.feedback || [
     "Good overall structure and organization",
     "Consider adding more specific examples",
@@ -243,15 +404,25 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               {getStatusBadge(assignment.status)}
             </div>
             <p className="text-muted-foreground">{assignment.organizationName}</p>
+            {assignment.instructions && (
+              <p className="mt-1 text-sm text-muted-foreground">{assignment.instructions}</p>
+            )}
           </div>
         </div>
+        <Link href={`/dashboard/assignments/${assignment.id}/edit`}>
+          <Button variant="outline">Edit Assignment</Button>
+        </Link>
       </div>
 
       {/* Rules */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Applied Rules</CardTitle>
-          <CardDescription>Criteria used to evaluate this assignment</CardDescription>
+          <CardDescription>
+            {assignment.hasAssignmentRules
+              ? "Criteria used to evaluate this assignment"
+              : "No assignment-specific rules were saved, so the organization rules are shown here."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
@@ -379,12 +550,18 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
               <TabsContent value="upload" className="mt-4">
                 <input
                   id="assignment-file-upload"
+                  ref={fileInputRef}
                   type="file"
                   accept=".docx,.txt,.png,.jpg,.jpeg,.webp,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp"
                   className="hidden"
                   onChange={handleFileInputChange}
                 />
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Upload assignment file"
+                  onClick={openFilePicker}
+                  onKeyDown={handleDropzoneKeyDown}
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
                   onDragEnter={handleDragOver}
@@ -395,9 +572,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ id:
                 >
                   <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-center">
-                    <label htmlFor="assignment-file-upload" className="font-medium text-primary cursor-pointer">
-                      Click to upload
-                    </label>{" "}
+                    <span className="font-medium text-primary cursor-pointer">Click to upload</span>{" "}
                     <span className="text-muted-foreground">or drag and drop</span>
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">

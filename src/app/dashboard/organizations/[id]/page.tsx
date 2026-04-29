@@ -68,6 +68,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deleteAssignments, setDeleteAssignments] = useState<Assignment[] | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -147,12 +149,37 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     setDeleteAssignments(selected)
   }
 
-  const confirmDelete = () => {
-    if (deleteAssignments) {
+  const confirmDelete = async () => {
+    if (!deleteAssignments || deleteAssignments.length === 0) {
+      return
+    }
+
+    setDeleteError(null)
+    setIsDeleting(true)
+
+    try {
       const idsToDelete = deleteAssignments.map((a) => a.id)
-      setAssignments(assignments.filter((a) => !idsToDelete.includes(a.id)))
-      setSelectedIds([])
+
+      await Promise.all(
+        idsToDelete.map(async (assignmentId) => {
+          const response = await fetch(`/api/assignment/${assignmentId}`, {
+            method: "DELETE",
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => null)
+            throw new Error(errorData?.error || "Failed to delete assignment")
+          }
+        })
+      )
+
+      setAssignments((prev) => prev.filter((a) => !idsToDelete.includes(a.id)))
+      setSelectedIds((prev) => prev.filter((assignmentId) => !idsToDelete.includes(assignmentId)))
       setDeleteAssignments(null)
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Failed to delete assignment")
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -199,6 +226,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
             {organization.gradingSystem && (
               <p className="text-sm text-muted-foreground">Grading system: {organization.gradingSystem}</p>
             )}
+            {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
           </div>
         </div>
         <div className="flex gap-2">
@@ -422,10 +450,13 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDelete}
+              onClick={() => {
+                void confirmDelete()
+              }}
+              disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Plus, X } from "lucide-react"
 
 interface OrganizationDetail {
@@ -25,6 +26,7 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
   const [isLoadingOrg, setIsLoadingOrg] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
   const [selectedRules, setSelectedRules] = useState<string[]>([])
   const [customRuleInput, setCustomRuleInput] = useState("")
   const [customRules, setCustomRules] = useState<string[]>([])
@@ -126,6 +128,7 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
         },
         body: JSON.stringify({
           title: name,
+          instructions: description,
           selectedRules,
           customRules,
         }),
@@ -134,6 +137,14 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to create assignment")
+      }
+
+      const data = await response.json()
+      const assignmentId = data?.assignment?.id
+
+      if (typeof assignmentId === "string" && assignmentId.trim()) {
+        router.push(`/dashboard/assignments/${assignmentId}`)
+        return
       }
 
       router.push(`/dashboard/organizations/${id}`)
@@ -175,8 +186,8 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
             <CardTitle>Assignment Details</CardTitle>
             <CardDescription>Give your assignment a name</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
               <Label htmlFor="name">Assignment Name *</Label>
               <Input
                 id="name"
@@ -186,109 +197,97 @@ export default function NewAssignmentPage({ params }: { params: Promise<{ id: st
                 required
               />
             </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Assignment Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Describe the assignment goals, expected deliverables, and constraints."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                />
+              </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Select Rules</CardTitle>
-            <CardDescription>
-              Choose which organization rules apply to this assignment
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Select All */}
-            <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3">
-              <Checkbox
-                id="select-all"
-                checked={selectedRules.length === organization.rules.length}
-                onCheckedChange={handleSelectAllRules}
-              />
-              <Label htmlFor="select-all" className="cursor-pointer font-medium">
-                Select All Rules
-              </Label>
-            </div>
-
-            {/* Organization Rules */}
-            <div className="space-y-2">
-              {organization.rules.map((rule, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 transition-colors hover:bg-muted/50"
-                >
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Select Rules</CardTitle>
+                <CardDescription>
+                  Choose which organization rules apply to this assignment
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3">
                   <Checkbox
-                    id={`rule-${index}`}
-                    checked={selectedRules.includes(rule)}
-                    onCheckedChange={() => handleToggleRule(rule)}
+                    id="select-all"
+                    checked={selectedRules.length === organization.rules.length}
+                    onCheckedChange={handleSelectAllRules}
                   />
-                  <Label htmlFor={`rule-${index}`} className="flex-1 cursor-pointer">
-                    {rule}
+                  <Label htmlFor="select-all" className="cursor-pointer font-medium">
+                    Select All Rules
                   </Label>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Custom Rules</CardTitle>
-            <CardDescription>Add additional rules specific to this assignment</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add a custom rule..."
-                value={customRuleInput}
-                onChange={(e) => setCustomRuleInput(e.target.value)}
-                onKeyDown={handleKeyPress}
-              />
-              <Button type="button" onClick={handleAddCustomRule} variant="outline">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {customRules.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {customRules.map((rule, index) => (
-                  <Badge
-                    key={index}
-                    variant="secondary"
-                    className="flex items-center gap-1 py-1.5 pl-3 pr-1"
-                  >
-                    {rule}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveCustomRule(rule)}
-                      className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {organization.rules.map((rule, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 transition-colors hover:bg-muted/50"
                     >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      <Checkbox
+                        id={`rule-${index}`}
+                        checked={selectedRules.includes(rule)}
+                        onCheckedChange={() => handleToggleRule(rule)}
+                      />
+                      <Label htmlFor={`rule-${index}`} className="flex-1 cursor-pointer">
+                        {rule}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Summary */}
-        {allRules.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Rules Summary</CardTitle>
-              <CardDescription>{allRules.length} rules selected for this assignment</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {allRules.map((rule, index) => (
-                  <Badge key={index} variant="outline">
-                    {rule}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Chosen Rules</CardTitle>
+                <CardDescription>Review the rules chosen for this assignment</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add a chosen rule..."
+                    value={customRuleInput}
+                    onChange={(e) => setCustomRuleInput(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                  />
+                  <Button type="button" onClick={handleAddCustomRule} variant="outline">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto pr-1">
+                  {allRules.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {allRules.map((rule, index) => (
+                        <Badge
+                          key={index}
+                          variant="outline"
+                          className="flex items-center gap-1 py-1.5 pl-3 pr-1"
+                        >
+                          {rule}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No chosen words added yet.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
         {/* Actions */}
         {submitError && <p className="text-sm text-destructive">{submitError}</p>}

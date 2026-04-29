@@ -46,6 +46,7 @@ interface Organization {
 interface AssignmentCard {
   id: string
   name: string
+  organizationId: string
   organizationName: string
   status: "pending" | "reviewed" | "submitted"
 }
@@ -57,6 +58,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [deleteOrg, setDeleteOrg] = useState<Organization | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -99,9 +101,25 @@ export default function DashboardPage() {
     }
   }, [])
 
-  const handleDeleteOrg = (org: Organization) => {
-    setOrganizations(organizations.filter((o) => o.id !== org.id))
-    setDeleteOrg(null)
+  const handleDeleteOrg = async (org: Organization) => {
+    setDeleteError(null)
+
+    try {
+      const response = await fetch(`/api/organizations/${org.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || "Failed to delete organization")
+      }
+
+      setOrganizations((prev) => prev.filter((o) => o.id !== org.id))
+      setPendingAssignments((prev) => prev.filter((assignment) => assignment.organizationId !== org.id))
+      setDeleteOrg(null)
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Failed to delete organization")
+    }
   }
 
   const getStatusIcon = (status: string) => {
@@ -144,6 +162,7 @@ export default function DashboardPage() {
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading dashboard...</p>}
       {loadError && <p className="text-sm text-destructive">{loadError}</p>}
+      {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
 
       {/* Assignments Needing Review */}
       {pendingAssignments.length > 0 && (
@@ -293,7 +312,11 @@ export default function DashboardPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteOrg && handleDeleteOrg(deleteOrg)}
+              onClick={() => {
+                if (deleteOrg) {
+                  void handleDeleteOrg(deleteOrg)
+                }
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete

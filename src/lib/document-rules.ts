@@ -56,18 +56,18 @@ function configurePdfWorker(PDFParse: typeof import("pdf-parse").PDFParse) {
 }
 
 export async function extractDocumentText(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer()
+  const arrayBuffer = await file.arrayBuffer()
 
   if (
     file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     file.name.toLowerCase().endsWith(".docx")
   ) {
-    const result = await mammoth.extractRawText({ arrayBuffer: buffer })
+    const result = await mammoth.extractRawText({ buffer: Buffer.from(arrayBuffer) })
     return result.value
   }
 
   if (file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt")) {
-    return new TextDecoder().decode(buffer)
+    return new TextDecoder().decode(arrayBuffer)
   }
 
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
@@ -80,7 +80,7 @@ export async function extractDocumentText(file: File): Promise<string> {
 
     configurePdfWorker(PdfParse)
 
-    const parser = new PdfParse({ data: Buffer.from(buffer) })
+    const parser = new PdfParse({ data: Buffer.from(arrayBuffer) })
     const result = await parser.getText()
     const text = result.pages.map((page) => page.text).join("\n")
     await parser.destroy()

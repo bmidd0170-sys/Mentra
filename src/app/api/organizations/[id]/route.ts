@@ -141,3 +141,30 @@ export async function PUT(
     return NextResponse.json({ error: "Failed to update organization" }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+
+    const existing = await prisma.organization.findUnique({
+      where: { id },
+      select: { id: true },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+    }
+
+    await prisma.organization.delete({
+      where: { id },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Failed to delete organization:", error)
+    return NextResponse.json({ error: "Failed to delete organization" }, { status: 500 })
+  }
+}

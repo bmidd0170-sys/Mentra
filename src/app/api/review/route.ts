@@ -9,7 +9,7 @@ type ReviewPayload = {
 }
 
 async function extractDocumentText(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer()
+  const arrayBuffer = await file.arrayBuffer()
 
   if (
     file.type ===
@@ -17,7 +17,7 @@ async function extractDocumentText(file: File): Promise<string> {
     file.name.toLowerCase().endsWith(".docx")
   ) {
     try {
-      const result = await mammoth.extractRawText({ arrayBuffer: buffer })
+      const result = await mammoth.extractRawText({ buffer: Buffer.from(arrayBuffer) })
       return result.value
     } catch (error) {
       throw new Error(`Failed to parse DOCX: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -26,7 +26,7 @@ async function extractDocumentText(file: File): Promise<string> {
 
   if (file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt")) {
     try {
-      const text = new TextDecoder().decode(buffer)
+      const text = new TextDecoder().decode(arrayBuffer)
       return text
     } catch (error) {
       throw new Error(`Failed to parse TXT: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -62,7 +62,7 @@ function parseJsonFromModelOutput(raw: string) {
   }
 }
 
-function normalizeReviewPayload(value: unknown): ReviewPayload | null {
+function normalizeReviewPayload(value: unknown, gradingSystem: string): ReviewPayload | null {
   if (!value || typeof value !== "object") return null
 
   const candidate = value as { grade?: unknown; score?: unknown; feedback?: unknown }
@@ -86,9 +86,21 @@ function normalizeReviewPayload(value: unknown): ReviewPayload | null {
     return null
   }
 
+  const normalizedScore = (() => {
+    if (/gpa/i.test(gradingSystem)) {
+      return Math.max(0, Math.min(4, Number(numericScore.toFixed(1))))
+    }
+
+    if (/%|percent/i.test(gradingSystem)) {
+      return Math.max(0, Math.min(100, Number(numericScore.toFixed(1))))
+    }
+
+    return Math.max(0, Math.min(100, Number(numericScore.toFixed(1))))
+  })()
+
   return {
     grade,
-    score: Math.max(0, Math.min(100, Math.round(numericScore))),
+    score: normalizedScore,
     feedback,
   }
 }
@@ -121,14 +133,16 @@ export async function POST(request: NextRequest) {
     let rules: string[] = []
     let assignmentName: string = ""
     let organizationName: string = ""
+    let gradingSystem: string = ""
 
     if (contentType?.includes("application/json")) {
-      const { content: jsonContent, screenshotDataUrl: jsonScreenshot, rules: jsonRules, assignmentName: jsonAssignmentName, organizationName: jsonOrganizationName } = await request.json()
+      const { content: jsonContent, screenshotDataUrl: jsonScreenshot, rules: jsonRules, assignmentName: jsonAssignmentName, organizationName: jsonOrganizationName, gradingSystem: jsonGradingSystem } = await request.json()
       content = jsonContent
       screenshotDataUrl = jsonScreenshot
       rules = jsonRules
       assignmentName = jsonAssignmentName
       organizationName = jsonOrganizationName
+      gradingSystem = typeof jsonGradingSystem === "string" ? jsonGradingSystem.trim() : ""
     } else if (contentType?.includes("multipart/form-data")) {
       const formData = await request.formData()
 
@@ -138,6 +152,7 @@ export async function POST(request: NextRequest) {
       const rulesField = formData.get("rules")
       const assignmentNameField = formData.get("assignmentName")
       const organizationNameField = formData.get("organizationName")
+      const gradingSystemField = formData.get("gradingSystem")
 
       if (contentField && typeof contentField === "string") {
         content = contentField
@@ -173,6 +188,10 @@ export async function POST(request: NextRequest) {
       if (organizationNameField && typeof organizationNameField === "string") {
         organizationName = organizationNameField
       }
+
+      if (gradingSystemField && typeof gradingSystemField === "string") {
+        gradingSystem = gradingSystemField.trim()
+      }
     }
 
     if (!content || !rules || rules.length === 0) {
@@ -197,6 +216,7 @@ export async function POST(request: NextRequest) {
 
 Assignment: ${assignmentName}
 Organization/Course: ${organizationName}
+Grading System: ${gradingSystem || "Not specified"}
 
 Grading Criteria (Rules):
 ${rules.map((rule: string, i: number) => `${i + 1}. ${rule}`).join("\n")}
@@ -208,10 +228,12 @@ ${typeof screenshotDataUrl === "string" && screenshotDataUrl ? "A screenshot of 
 
 Please carefully review the student's submission against each grading criterion. Consider how well the submission addresses or satisfies each rule. Segment your feedback to reference specific parts of the submission when relevant.
 
-Provide:
-1. A letter grade (A+, A, A-, B+, B, B-, C+, C, C-, D+, D, F)
-2. A numeric score (0-100)
-3. 4-5 specific pieces of feedback (mix of strengths and improvement areas)
+Provide a response that matches the grading system when one is supplied:
+1. If the grading system is letter-based, return a letter grade and a matching score on a 0-100 scale.
+2. If the grading system is percentage-based, return a percentage score and a compatible letter grade.
+3. If the grading system is GPA-based, return a GPA-style score on a 4.0 scale and a compatible letter grade.
+4. If no system is specified, use a standard letter grade and 0-100 score.
+5. Return 4-5 specific pieces of feedback (mix of strengths and improvement areas).
 
 Format your response as JSON with this structure:
 {
@@ -292,7 +314,7 @@ Only return valid JSON, no additional text.`
 
     // Parse the JSON response
     const parsed = parseJsonFromModelOutput(contentText)
-    const result = normalizeReviewPayload(parsed)
+    const result = normalizeReviewPayload(parsed, gradingSystem)
 
     if (!result) {
       throw new Error("Model returned an invalid review payload")
