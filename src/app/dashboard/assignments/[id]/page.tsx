@@ -113,7 +113,9 @@ function scoreToLetterGrade(score: number) {
 }
 
 export default function AssignmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)  const { user } = useAuth()  const [assignment, setAssignment] = useState<AssignmentView | null>(null)
+  const { id } = use(params)
+  const { user } = useAuth()
+  const [assignment, setAssignment] = useState<AssignmentView | null>(null)
   const [isLoadingAssignment, setIsLoadingAssignment] = useState(true)
 
   const [textContent, setTextContent] = useState("")
