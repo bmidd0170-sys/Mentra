@@ -5,7 +5,7 @@ import { validateRubric } from "@/lib/rubric"
 
 type CriterionInput = {
   name: string
-  description?: string
+  description?: string | null
   levels: Array<{
     label: string
     score: number

@@ -21,8 +21,6 @@ interface GradingTableProps {
 }
 
 export function GradingTable({ value, onChange, disabled = false }: GradingTableProps) {
-  const [localEntries, setLocalEntries] = useState<GradeEntry[]>(value || getDefaultGradingScale())
-
   const getDefaultGradingScale = (): GradeEntry[] => [
     { grade: "A", minScore: 90, maxScore: 100, description: "Excellent" },
     { grade: "B", minScore: 80, maxScore: 89, description: "Good" },
@@ -30,6 +28,8 @@ export function GradingTable({ value, onChange, disabled = false }: GradingTable
     { grade: "D", minScore: 60, maxScore: 69, description: "Passing" },
     { grade: "F", minScore: 0, maxScore: 59, description: "Failing" },
   ]
+
+  const [localEntries, setLocalEntries] = useState<GradeEntry[]>(value || getDefaultGradingScale())
 
   const handleAddRow = () => {
     const newEntry: GradeEntry = {
