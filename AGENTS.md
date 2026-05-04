@@ -2,32 +2,29 @@
 
 ## Commands
 
-- `npm run dev` — Starts Next.js dev server via custom wrapper (`scripts/run-next-env-only.mjs`). The wrapper temporarily renames `.env.local` to `.env.local.__next-dev-backup__` while the dev server runs, restoring it on exit.
-- `npm run build` — Runs `prisma generate` then `next build`. Prisma client must be regenerated before each build.
-- `npm run lint` — ESLint (Next.js core web vitals + TypeScript config).
+- `npm run dev` — uses `scripts/run-next-env-only.mjs` which renames `.env.local` → `.env.local.__next-dev-backup__` while the dev server runs, then restores it on exit. Next.js loads `.env` instead during dev.
+- `npm run build` — runs `prisma generate` before building. Never skip this step.
+- `npm run lint` — ESLint only. No typecheck script exists; use `npx tsc --noEmit` directly if needed.
 
-No test framework or test script is configured.
+## Dev environment
 
-## Environment
+- PostgreSQL required locally. Start with `docker compose up -d db` or provide a `DATABASE_URL` in `.env`.
+- After pulling/changing schema: `npx prisma generate && npx prisma db push`
+- Demo login: `rob@launchpadphilly.org` / `password123` (Firebase demo mode, no real auth needed)
 
-Requires `.env.local` with:
-- `DATABASE_URL` — PostgreSQL connection (default: `postgresql://mentra:mentra@localhost:5432/mentra?schema=public`)
-- `OPENAI_API_KEY` — Used by `/api/review` and `/api/generate-rules` (model: `gpt-4o-mini`)
-- `NEXT_PUBLIC_FIREBASE_*` — Firebase client config for auth
+## Architecture notes
 
-Docker: `docker compose up -d db` starts PostgreSQL 16. The `docker-compose.yml` assumes an `./app` subdirectory, but this repo is rooted at the top level — update compose paths if containerizing the app.
+- Next.js 16 App Router, `"use client"` directives used extensively in dashboard routes
+- Path alias: `@/*` → `./src/*` (see `tsconfig.json`)
+- All API routes under `src/app/api/*` require Firebase ID token in `Authorization: Bearer <idToken>` header; unauthenticated requests return 401
+- Data isolation: all Prisma queries filter by `createdByUserId` — never skip this in new API routes
+- Prisma IDs use `cuid()`; `datasource db` in `schema.prisma` has no `url` — it reads from `DATABASE_URL` env var
+- OpenAI calls use `gpt-4o-mini` for `/api/review` and `/api/generate-rules`
 
-## Architecture
+## Mock data
 
-Single Next.js 16 App Router app (not a monorepo). Path alias: `@/*` → `./src/*`.
+`src/lib/mock-data.ts` exports `mockUser`, `mockOrganizations`, and `mockAssignments` used in dashboard routes. Notification mock data has been removed; notification state is now managed locally with empty arrays in `layout.tsx` and `profile/page.tsx`.
 
-- `src/app/*` — Routes and API handlers (`/api/review`, `/api/generate-rules`)
-- `src/components/*` — Shared UI (Radix UI + Tailwind CSS v4)
-- `src/lib/*` — Firebase config, demo auth, utilities
-- `prisma/schema.prisma` — PostgreSQL schema (User, Organization, Assignment, Submission, etc.)
+## Docker
 
-Firebase auth is client-side only; API routes read `Authorization: Bearer <idToken>` and scope all queries by `createdByUserId`. Demo login available at dev time (email: `rob@launchpadphilly.org`, password: `password123`).
-
-## Prisma
-
-After schema changes: `npx prisma generate && npx prisma db push`. Client output is consumed by `@prisma/client` in `node_modules/.prisma`.
+`docker-compose.yml` assumes the repo root is the project root. The README notes that compose paths may need updating if the app is moved to an `./app` subdirectory.

@@ -10,8 +10,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/components/firebase-auth-provider"
-import { mockNotifications, type Notification } from "@/lib/mock-data"
 import { Bell, Camera, KeyRound, Trash2, User } from "lucide-react"
+
+interface Notification {
+  id: string
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+  type: "info" | "success" | "warning"
+}
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -27,11 +35,7 @@ export default function ProfilePage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [photoURL, setPhotoURL] = useState<string | null>(null)
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    return [...mockNotifications].sort((a, b) => {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    })
-  })
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [selectedNotificationIds, setSelectedNotificationIds] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [isRequestingReset, setIsRequestingReset] = useState(false)
@@ -349,41 +353,41 @@ export default function ProfilePage() {
               You do not have any notifications.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="min-w-full text-sm">
-                <thead className="bg-muted/50 text-left">
-                  <tr>
-                    <th className="w-12 px-3 py-3">
-                      <Checkbox
-                        aria-label="Select all notifications"
-                        checked={allSelected}
-                        onCheckedChange={(checked) => handleSelectAllNotifications(checked === true)}
-                      />
-                    </th>
-                    <th className="px-3 py-3 font-medium text-foreground">Title</th>
-                    <th className="px-3 py-3 font-medium text-foreground">Message</th>
-                    <th className="px-3 py-3 font-medium text-foreground">Received</th>
-                    <th className="px-3 py-3 font-medium text-foreground">Status</th>
-                    <th className="w-24 px-3 py-3 font-medium text-foreground">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {notifications.map((notification) => {
-                    const isSelected = selectedNotificationIds.includes(notification.id)
+             <div className="rounded-lg border border-border overflow-hidden">
+                 <table className="w-full text-sm table-fixed">
+                 <thead className="bg-muted/50 text-left">
+                   <tr>
+                     <th className="w-12 px-3 py-3">
+                       <Checkbox
+                         aria-label="Select all notifications"
+                         checked={allSelected}
+                         onCheckedChange={(checked) => handleSelectAllNotifications(checked === true)}
+                       />
+                     </th>
+                     <th className="w-1/6 px-3 py-3 font-medium text-foreground">Title</th>
+                     <th className="w-2/5 px-3 py-3 font-medium text-foreground">Message</th>
+                     <th className="w-1/6 px-3 py-3 font-medium text-foreground">Received</th>
+                     <th className="w-1/6 px-3 py-3 font-medium text-foreground">Status</th>
+                     <th className="w-24 px-3 py-3 font-medium text-foreground">Action</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {notifications.map((notification) => {
+                     const isSelected = selectedNotificationIds.includes(notification.id)
 
-                    return (
-                      <tr key={notification.id} className="border-t border-border">
-                        <td className="px-3 py-3">
-                          <Checkbox
-                            aria-label={`Select notification ${notification.title}`}
-                            checked={isSelected}
-                            onCheckedChange={(checked) =>
-                              toggleNotificationSelection(notification.id, checked === true)
-                            }
-                          />
-                        </td>
-                        <td className="px-3 py-3 font-medium text-foreground">{notification.title}</td>
-                        <td className="max-w-xs px-3 py-3 text-muted-foreground">{notification.message}</td>
+                     return (
+                       <tr key={notification.id} className="border-t border-border">
+                         <td className="px-3 py-3">
+                           <Checkbox
+                             aria-label={`Select notification ${notification.title}`}
+                             checked={isSelected}
+                             onCheckedChange={(checked) =>
+                               toggleNotificationSelection(notification.id, checked === true)
+                             }
+                           />
+                         </td>
+                         <td className="break-words px-3 py-3 font-medium text-foreground">{notification.title}</td>
+                         <td className="break-words px-3 py-3 text-muted-foreground">{notification.message}</td>
                         <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">
                           {formatNotificationDate(notification.createdAt)}
                         </td>

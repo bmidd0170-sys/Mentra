@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import LoadingOverlay from "@/components/ui/loading-overlay"
 
 type LevelDraft = {
   label: string
@@ -40,6 +41,9 @@ export default function AddOrganizationPage() {
     },
   ])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showOverlay, setShowOverlay] = useState(false)
+  const overlayTimerRef = useRef<number | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const addCriterion = () => {
@@ -107,41 +111,54 @@ export default function AddOrganizationPage() {
     }
 
     setError(null)
+    setIsGenerating(true)
 
-    const response = await fetch("/api/generateRubricFromRules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rules }),
-    })
+    try {
+      const response = await fetch("/api/generateRubricFromRules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rules }),
+      })
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null)
-      setError(data?.error || "Failed to generate rubric from rules")
-      return
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        setError(data?.error || "Failed to generate rubric from rules")
+        return
+      }
+
+      const data = await response.json()
+      setCriteria(
+        (data.criteria || []).map((criterion: {
+          name: string
+          description?: string
+          levels: Array<{ label: string; score: number; description: string }>
+        }) => ({
+          name: criterion.name,
+          description: criterion.description || "",
+          levels: criterion.levels.map((level) => ({
+            label: level.label,
+            score: String(level.score),
+            description: level.description,
+          })),
+        }))
+      )
+    } catch {
+      setError("Failed to generate rubric from rules")
+    } finally {
+      setIsGenerating(false)
     }
-
-    const data = await response.json()
-    setCriteria(
-      (data.criteria || []).map((criterion: {
-        name: string
-        description?: string
-        levels: Array<{ label: string; score: number; description: string }>
-      }) => ({
-        name: criterion.name,
-        description: criterion.description || "",
-        levels: criterion.levels.map((level) => ({
-          label: level.label,
-          score: String(level.score),
-          description: level.description,
-        })),
-      }))
-    )
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setIsSubmitting(true)
     setError(null)
+    setShowOverlay(false)
+    if (overlayTimerRef.current) {
+      clearTimeout(overlayTimerRef.current)
+      overlayTimerRef.current = null
+    }
+    overlayTimerRef.current = window.setTimeout(() => setShowOverlay(true), 250)
 
     try {
       const payload = {
@@ -174,18 +191,27 @@ export default function AddOrganizationPage() {
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to create organization")
     } finally {
+      if (overlayTimerRef.current) {
+        clearTimeout(overlayTimerRef.current)
+        overlayTimerRef.current = null
+      }
+      setShowOverlay(false)
       setIsSubmitting(false)
     }
   }
 
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-6">
+    <main className="mx-auto w-full max-w-2xl px-4 sm:px-6 lg:px-8 space-y-6 py-6">
+      {(showOverlay || isGenerating) && (
+        <LoadingOverlay message={isGenerating ? "Generating rubric..." : "Creating organization..."} />
+      )}
       <div>
         <h1 className="text-2xl font-semibold">Create Organization</h1>
         <p className="text-sm text-muted-foreground">Build a flexible rubric for AI grading.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" aria-busy={isSubmitting}>
+        <fieldset disabled={isSubmitting} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Organization Details</CardTitle>
@@ -219,9 +245,19 @@ export default function AddOrganizationPage() {
               value={ruleSeed}
               onChange={(e) => setRuleSeed(e.target.value)}
             />
-            <Button type="button" variant="outline" onClick={generateFromRules}>
-              Generate Rubric
+            <Button type="button" variant="outline" onClick={generateFromRules} disabled={isGenerating}>
+              {isGenerating ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Generating...
+                </>
+              ) : (
+                "Generate Rubric"
+              )}
             </Button>
+            <p className="text-xs text-muted-foreground">
+              AI generation may take some time, especially for longer rule lists.
+            </p>
           </CardContent>
         </Card>
 
@@ -290,6 +326,7 @@ export default function AddOrganizationPage() {
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
+        </fieldset>
       </form>
     </main>
   )

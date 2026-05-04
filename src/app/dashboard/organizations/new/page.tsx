@@ -436,24 +436,38 @@ export default function NewOrganizationPage() {
               <Switch checked={useAI} onCheckedChange={setUseAI} />
             </div>
 
-            {useAI && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGenerateAIRules}
-                disabled={isGenerating}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>Generating rules...</>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Generate AI Rules
-                  </>
-                )}
-              </Button>
+        {useAI && (
+          <>
+            {isGenerating && (
+              <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/40 p-4">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <span className="text-sm text-muted-foreground">Generating rules...</span>
+              </div>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGenerateAIRules}
+              disabled={isGenerating}
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Generating rules...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate AI Rules
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              AI generation may take some time to read and process your description.
+            </p>
+          </>
+        )}
 
             {/* Manual Rule Input */}
             <div className="space-y-2">
@@ -544,31 +558,31 @@ export default function NewOrganizationPage() {
             {rules.length > 0 && (
               <div className="space-y-2">
                 <Label>Rubric Builder ({rules.length} rules)</Label>
-                <div className="overflow-x-auto rounded-md border border-border">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-muted/40">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-foreground">Title</th>
-                        <th className="px-3 py-2 text-left font-medium text-foreground">Description</th>
-                        <th className="px-3 py-2 text-left font-medium text-foreground">Weight</th>
-                        <th className="px-3 py-2 text-right font-medium text-foreground">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rules.map((rule) => (
-                        <tr key={rule.title} className="border-t border-border align-top">
-                          <td className="px-3 py-2">
-                            <Input
-                              value={rule.title}
-                              onChange={(e) => handleRuleChange(rule.title, "title", e.target.value)}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <Input
-                              value={rule.description}
-                              onChange={(e) => handleRuleChange(rule.title, "description", e.target.value)}
-                            />
-                          </td>
+                 <div className="rounded-md border border-border overflow-hidden">
+                  <table className="w-full text-sm table-fixed">
+                     <thead className="bg-muted/40">
+                       <tr>
+                         <th className="w-1/4 px-3 py-2 text-left font-medium text-foreground">Title</th>
+                         <th className="w-2/4 px-3 py-2 text-left font-medium text-foreground">Description</th>
+                         <th className="w-1/6 px-3 py-2 text-left font-medium text-foreground">Weight</th>
+                         <th className="w-1/12 px-3 py-2 text-right font-medium text-foreground">Actions</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       {rules.map((rule) => (
+                         <tr key={rule.title} className="border-t border-border align-top">
+                           <td className="break-words px-3 py-2">
+                             <Input
+                               value={rule.title}
+                               onChange={(e) => handleRuleChange(rule.title, "title", e.target.value)}
+                             />
+                           </td>
+                           <td className="break-words px-3 py-2">
+                             <Input
+                               value={rule.description}
+                               onChange={(e) => handleRuleChange(rule.title, "description", e.target.value)}
+                             />
+                           </td>
                           <td className="px-3 py-2">
                             <Input
                               type="number"

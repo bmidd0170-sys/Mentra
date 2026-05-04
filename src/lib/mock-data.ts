@@ -28,15 +28,6 @@ export interface Assignment {
   updatedAt: string
 }
 
-export interface Notification {
-  id: string
-  title: string
-  message: string
-  read: boolean
-  createdAt: string
-  type: "info" | "success" | "warning"
-}
-
 export const mockUser: User = {
   id: "1",
   name: "Jordan Smith",
@@ -145,37 +136,4 @@ export const mockAssignments: Assignment[] = [
   },
 ]
 
-export const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "Feedback Ready",
-    message: "Your Binary Search Tree Implementation has been reviewed",
-    read: false,
-    createdAt: "2026-03-02T10:30:00",
-    type: "success",
-  },
-  {
-    id: "2",
-    title: "New Assignment Due",
-    message: "Graph Algorithms Project is due in 3 days",
-    read: false,
-    createdAt: "2026-03-12T09:00:00",
-    type: "warning",
-  },
-  {
-    id: "3",
-    title: "Organization Updated",
-    message: "CS 301 rules have been updated by the instructor",
-    read: true,
-    createdAt: "2026-03-10T14:15:00",
-    type: "info",
-  },
-  {
-    id: "4",
-    title: "Feedback Ready",
-    message: "Your Market Analysis Report has been reviewed",
-    read: true,
-    createdAt: "2026-03-07T16:45:00",
-    type: "success",
-  },
-]
+

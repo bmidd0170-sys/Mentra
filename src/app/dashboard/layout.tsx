@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { mockNotifications } from "@/lib/mock-data"
 import { useAuth } from "@/components/firebase-auth-provider"
 import {
   Zap,
@@ -30,6 +29,15 @@ import {
   Info,
 } from "lucide-react"
 
+interface Notification {
+  id: string
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+  type: "info" | "success" | "warning"
+}
+
 const navigation = [
   { name: "Home", href: "/dashboard", icon: Home },
   { name: "Profile", href: "/dashboard/profile", icon: User },
@@ -45,7 +53,7 @@ export default function DashboardLayout({
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [notifications] = useState(mockNotifications)
+  const [notifications] = useState<Notification[]>([])
 
   useEffect(() => {
     if (!loading && !user) {
