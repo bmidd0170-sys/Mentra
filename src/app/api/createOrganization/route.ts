@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { generateRubricFromRules } from "@/lib/grading"
 import { validateRubric } from "@/lib/rubric"
-import { getUserIdFromRequest } from "@/lib/server-auth"
+import { getFirebaseAuthUserFromRequest } from "@/lib/server-auth"
 
 type CriterionInput = {
   name: string
@@ -56,10 +56,10 @@ function normalizeRules(value: unknown) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(request)
+    const authUser = await getFirebaseAuthUserFromRequest(request)
     
     // Require authentication for creating organizations
-    if (!userId) {
+    if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized: Please log in to create organizations" },
         { status: 401 }
@@ -89,12 +89,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
+    await prisma.user.upsert({
+      where: { id: authUser.userId },
+      update: {
+        email: authUser.email,
+        name: authUser.name,
+      },
+      create: {
+        id: authUser.userId,
+        email: authUser.email,
+        name: authUser.name,
+      },
+    })
+
     const organization = await prisma.organization.create({
       data: {
         name,
         description,
         gradingSystem: body.gradingSystem?.trim?.() || null,
-        createdByUserId: userId,
+        createdByUserId: authUser.userId,
         criteria: {
           create: criteria.map((criterion) => ({
             name: criterion.name,

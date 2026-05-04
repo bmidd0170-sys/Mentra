@@ -21,11 +21,22 @@ function decodeJwt(token: string): Record<string, unknown> | null {
   }
 }
 
+export type FirebaseAuthUser = {
+  userId: string
+  email: string
+  name: string | null
+}
+
 /**
  * Extract the Firebase user ID from the Authorization header.
  * Returns the user's UID if valid, or null if unauthorized.
  */
 export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
+  const user = await getFirebaseAuthUserFromRequest(request)
+  return user?.userId ?? null
+}
+
+export async function getFirebaseAuthUserFromRequest(request: NextRequest): Promise<FirebaseAuthUser | null> {
   try {
     const authHeader = request.headers.get("Authorization")
     if (!authHeader?.startsWith("Bearer ")) {
@@ -34,12 +45,27 @@ export async function getUserIdFromRequest(request: NextRequest): Promise<string
 
     const idToken = authHeader.substring("Bearer ".length)
     const decoded = decodeJwt(idToken)
+    const userId =
+      typeof decoded?.user_id === "string"
+        ? decoded.user_id
+        : typeof decoded?.sub === "string"
+          ? decoded.sub
+          : typeof decoded?.uid === "string"
+            ? decoded.uid
+            : null
 
-    if (!decoded || typeof decoded.uid !== "string") {
-      return null
-    }
+      if (!userId) {
+        return null
+      }
 
-    return decoded.uid
+      const email = typeof decoded?.email === "string" && decoded.email.trim()
+        ? decoded.email.trim()
+        : `${userId}@firebase.local`
+      const name = typeof decoded?.name === "string" && decoded.name.trim()
+        ? decoded.name.trim()
+        : null
+
+      return { userId, email, name }
   } catch (error) {
     console.error("Error extracting user ID from request:", error)
     return null

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { generateRubricFromRules } from "@/lib/grading"
 import { validateRubric } from "@/lib/rubric"
 import { extractDocumentText, extractRulesFromDocument } from "@/lib/document-rules"
-import { getUserIdFromRequest } from "@/lib/server-auth"
+import { getFirebaseAuthUserFromRequest, getUserIdFromRequest } from "@/lib/server-auth"
 
 type NormalizedRule = {
   title: string
@@ -265,12 +265,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
+    const authUser = await getFirebaseAuthUserFromRequest(request)
+    if (!authUser) {
+      return NextResponse.json(
+        { error: "Unauthorized: Please log in to create organizations" },
+        { status: 401 }
+      )
+    }
+
+    await prisma.user.upsert({
+      where: { id: authUser.userId },
+      update: {
+        email: authUser.email,
+        name: authUser.name,
+      },
+      create: {
+        id: authUser.userId,
+        email: authUser.email,
+        name: authUser.name,
+      },
+    })
+
     const organization = await prisma.organization.create({
       data: {
         name,
         description,
         gradingSystem,
-        createdByUserId: userId,
+        createdByUserId: authUser.userId,
         criteria: {
           create: criteria.map((criterion) => ({
             name: criterion.name,
